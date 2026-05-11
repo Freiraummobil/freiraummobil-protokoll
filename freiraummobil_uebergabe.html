@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Übergabe">
+<title>Übergabeprotokoll – Freiraummobil</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root {
+  --blue: #1a3a5c;
+  --blue-light: #e8f0f8;
+  --blue-mid: #2d5f8e;
+  --green: #2d6a2d;
+  --green-bg: #eaf3ea;
+  --amber: #7a4f00;
+  --amber-bg: #fdf3dc;
+  --red: #8b1a1a;
+  --red-bg: #fdeaea;
+  --gray: #6b7280;
+  --gray-bg: #f4f4f4;
+  --border: #dde3ec;
+  --bg: #f0f4f8;
+  --card: #ffffff;
+  --text: #111827;
+  --text2: #4b5563;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 4px rgba(0,0,0,0.07);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
+
+/* ── HEADER ── */
+.hdr {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  background: var(--blue); color: #fff;
+  padding: env(safe-area-inset-top, 0) 0 0;
+}
+.hdr-inner { display: flex; align-items: center; gap: 10px; padding: 12px 16px 10px; }
+.hdr-icon { font-size: 22px; }
+.hdr-title { flex: 1; }
+.hdr-title h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.2px; }
+.hdr-title p { font-size: 11px; opacity: 0.75; margin-top: 1px; }
+.hdr-archive-btn {
+  background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+  color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer;
+  white-space: nowrap;
+}
+.progress-wrap { padding: 0 16px 10px; }
+.progress-bar { height: 3px; background: rgba(255,255,255,0.2); border-radius: 2px; }
+.progress-fill { height: 100%; background: #7ec8e3; border-radius: 2px; transition: width 0.4s; }
+.progress-label { font-size: 10px; opacity: 0.7; margin-top: 4px; text-align: right; }
+
+/* ── TAB NAV ── */
+.tab-nav {
+  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 72px); left: 0; right: 0; z-index: 199;
+  background: #fff; border-bottom: 1px solid var(--border);
+  display: flex; overflow-x: auto; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.tab-nav::-webkit-scrollbar { display: none; }
+.tab-btn {
+  flex-shrink: 0; padding: 10px 14px; font-size: 12px; font-weight: 500;
+  color: var(--gray); border: none; background: transparent; cursor: pointer;
+  border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.2s;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.tab-btn .tab-icon { font-size: 16px; }
+.tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+.tab-btn.done { color: var(--green); }
+.tab-btn.done .tab-icon::after { content: '✓'; font-size: 10px; }
+
+/* ── MAIN ── */
+.main {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 72px + 44px + 12px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px);
+  min-height: 100vh;
+}
+.section { display: none; padding: 0 12px; }
+.section.active { display: block; }
+
+.sec-header { padding: 4px 0 12px; }
+.sec-header h2 { font-size: 20px; font-weight: 700; color: var(--blue); }
+.sec-header p { font-size: 13px; color: var(--text2); margin-top: 3px; line-height: 1.4; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px; margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.card-title {
+  font-size: 13px; font-weight: 600; color: var(--blue);
+  display: flex; align-items: center; gap: 7px; margin-bottom: 12px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.card-title .ci { font-size: 17px; }
+
+/* ── TIP BOX ── */
+.tip {
+  background: var(--blue-light); border-left: 3px solid var(--blue);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 9px 11px; margin-bottom: 12px;
+}
+.tip p { font-size: 12px; color: var(--blue); line-height: 1.5; }
+.tip strong { font-weight: 600; display: block; margin-bottom: 2px; }
+
+/* ── FIELDS ── */
+.field { margin-bottom: 11px; }
+.field:last-child { margin-bottom: 0; }
+.field label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+.field input, .field select, .field textarea {
+  width: 100%; padding: 9px 11px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 14px; font-family: inherit;
+  background: #fafafa; color: var(--text); appearance: none;
+  -webkit-appearance: none; transition: border-color 0.2s;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: none; border-color: var(--blue-mid); background: #fff;
+}
+.field textarea { min-height: 64px; resize: vertical; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* ── CHECKLIST ── */
+.check-item {
+  display: flex; align-items: flex-start; gap: 11px;
+  padding: 10px 0; border-bottom: 1px solid #f0f0f0;
+}
+.check-item:last-child { border-bottom: none; padding-bottom: 0; }
+.check-item input[type=checkbox] {
+  width: 20px; height: 20px; accent-color: var(--blue);
+  flex-shrink: 0; margin-top: 1px; cursor: pointer; border-radius: 4px;
+}
+.check-info { flex: 1; }
+.check-info strong { display: block; font-size: 13px; font-weight: 600; line-height: 1.3; }
+.check-info span { display: block; font-size: 12px; color: var(--gray); margin-top: 2px; line-height: 1.4; }
+
+/* ── PHOTO ZONE ── */
+.photo-wrap { margin-top: 10px; }
+.photo-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 10px; border: 1.5px dashed var(--border);
+  border-radius: var(--radius-sm); background: #fafafa;
+  font-size: 13px; color: var(--blue); cursor: pointer;
+  font-family: inherit; font-weight: 500; position: relative; overflow: hidden;
+  transition: background 0.2s;
+}
+.photo-btn:active { background: var(--blue-light); }
+.photo-btn input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0;
+}
+.photo-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; margin-top: 8px; }
+.photo-thumb { aspect-ratio: 1; border-radius: 8px; overflow: hidden; position: relative; background: #eee; }
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-del {
+  position: absolute; top: 3px; right: 3px;
+  background: rgba(0,0,0,0.55); color: #fff;
+  border: none; border-radius: 50%; width: 22px; height: 22px;
+  font-size: 14px; line-height: 22px; text-align: center;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+
+/* ── STATUS BUTTONS ── */
+.status-row { display: flex; gap: 6px; margin-top: 8px; }
+.stat-btn {
+  flex: 1; padding: 8px 4px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); font-size: 12px; font-weight: 500;
+  cursor: pointer; background: transparent; color: var(--gray); transition: all 0.2s;
+  font-family: inherit; text-align: center;
+}
+.stat-btn.sel-ok { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+.stat-btn.sel-mangel { background: var(--amber-bg); border-color: var(--amber); color: var(--amber); }
+.stat-btn.sel-schaden { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+
+/* ── SIGNATURE ── */
+.sig-wrap { border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fafafa; position: relative; margin-top: 8px; overflow: hidden; }
+.sig-canvas { display: block; width: 100%; touch-action: none; cursor: crosshair; }
+.sig-clear-btn {
+  position: absolute; top: 6px; right: 8px;
+  background: rgba(255,255,255,0.85); border: 1px solid var(--border);
+  border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer;
+  color: var(--gray); font-family: inherit;
+}
+.sig-hint { font-size: 11px; color: var(--gray); margin-bottom: 4px; }
+
+/* ── SUMMARY ── */
+.sum-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+.sum-row:last-child { border-bottom: none; }
+.sum-key { color: var(--text2); }
+.sum-val { font-weight: 600; }
+.badge { padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.badge-ok { background: var(--green-bg); color: var(--green); }
+.badge-warn { background: var(--amber-bg); color: var(--amber); }
+
+/* ── BOTTOM BUTTONS ── */
+.btn-bar { display: flex; gap: 8px; margin-top: 16px; padding-bottom: 8px; }
+.btn-prev, .btn-next {
+  flex: 1; padding: 13px; border-radius: var(--radius); font-size: 15px;
+  font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: opacity 0.2s;
+}
+.btn-prev { background: #fff; color: var(--blue); border: 1px solid var(--border); }
+.btn-next { background: var(--blue); color: #fff; }
+.btn-next:active, .btn-prev:active { opacity: 0.8; }
+.btn-full {
+  width: 100%; padding: 13px; border-radius: var(--radius); font-size: 15px;
+  font-weight: 600; cursor: pointer; border: none; font-family: inherit;
+  margin-bottom: 10px; transition: opacity 0.2s;
+}
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-secondary { background: #fff; color: var(--blue); border: 1px solid var(--border); }
+.btn-green { background: #2d6a2d; color: #fff; }
+.btn-full:active { opacity: 0.8; }
+
+/* ── ARCHIVE ── */
+.archive-overlay {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.5); align-items: flex-end;
+}
+.archive-overlay.open { display: flex; }
+.archive-sheet {
+  background: var(--card); border-radius: 20px 20px 0 0;
+  width: 100%; max-height: 80vh; overflow-y: auto;
+  padding: 0 16px calc(env(safe-area-inset-bottom,0px) + 20px);
+}
+.archive-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: 12px auto 16px; }
+.archive-title { font-size: 17px; font-weight: 700; margin-bottom: 14px; color: var(--blue); }
+.archive-item {
+  background: var(--bg); border-radius: var(--radius-sm);
+  padding: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px;
+}
+.archive-item-info { flex: 1; }
+.archive-item-info strong { display: block; font-size: 13px; font-weight: 600; }
+.archive-item-info span { font-size: 11px; color: var(--gray); }
+.archive-item-btn {
+  background: var(--red-bg); color: var(--red); border: 1px solid #f0b0b0; border-radius: 8px;
+  padding: 7px 12px; font-size: 12px; cursor: pointer; font-family: inherit;
+  white-space: nowrap;
+}
+.archive-empty { text-align: center; padding: 32px 0; color: var(--gray); font-size: 14px; }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: calc(env(safe-area-inset-bottom,0px) + 20px);
+  left: 50%; transform: translateX(-50%);
+  background: #1f2937; color: #fff; padding: 10px 20px;
+  border-radius: 20px; font-size: 13px; z-index: 999;
+  opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-inner">
+    <div class="hdr-icon">🚐</div>
+    <div class="hdr-title">
+      <h1>Übergabeprotokoll</h1>
+      <p>Freiraummobil · BO FR 1000 · Bj. 2022</p>
+    </div>
+    <button class="hdr-archive-btn" onclick="openArchive()">📂 Archiv</button>
+  </div>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="progress-label" id="progressLabel">0 von 0 Punkten</div>
+  </div>
+</div>
+
+<!-- TAB NAV -->
+<div class="tab-nav" id="tabNav">
+  <button class="tab-btn active" onclick="goTo(0)"><span class="tab-icon">📋</span>Übergabe</button>
+  <button class="tab-btn" onclick="goTo(1)"><span class="tab-icon">🚐</span>Außen</button>
+  <button class="tab-btn" onclick="goTo(2)"><span class="tab-icon">🏠</span>Innen</button>
+  <button class="tab-btn" onclick="goTo(3)"><span class="tab-icon">⚙️</span>Technik</button>
+  <button class="tab-btn" onclick="goTo(4)"><span class="tab-icon">🔋</span>Energie</button>
+  <button class="tab-btn" onclick="goTo(5)"><span class="tab-icon">🚿</span>Wasser</button>
+  <button class="tab-btn" onclick="goTo(6)"><span class="tab-icon">🪑</span>Zubehör</button>
+  <button class="tab-btn" onclick="goTo(7)"><span class="tab-icon">✅</span>Abschluss</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- ── 0: ÜBERGABEDATEN ── -->
+  <div class="section active" id="sec0">
+    <div class="sec-header">
+      <h2>Übergabedaten</h2>
+      <p>Basisinformationen für dieses Protokoll erfassen.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">👤</span>Mieter</div>
+      <div class="field"><label>Vorname & Nachname</label><input type="text" id="mieter-name" placeholder="Max Mustermann" autocomplete="name"></div>
+      <div class="field"><label>Telefon</label><input type="tel" id="mieter-tel" placeholder="+49 …" autocomplete="tel"></div>
+      <div class="field"><label>E-Mail</label><input type="email" id="mieter-mail" placeholder="mieter@beispiel.de" autocomplete="email"></div>
+      <div class="field"><label>Führerscheinnummer</label><input type="text" id="mieter-fs" placeholder="B123456789"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">📅</span>Mietzeit</div>
+      <div class="grid2">
+        <div class="field"><label>Ausgabe</label><input type="date" id="datum-aus"></div>
+        <div class="field"><label>Rückgabe</label><input type="date" id="datum-rueck"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Uhrzeit Ausgabe</label><input type="time" id="time-aus"></div>
+        <div class="field"><label>Uhrzeit Rückgabe</label><input type="time" id="time-rueck"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🛣️</span>Kilometerstand</div>
+      <div class="grid2">
+        <div class="field"><label>KM bei Ausgabe</label><input type="number" id="km-aus" placeholder="z.B. 24500"></div>
+        <div class="field"><label>KM bei Rückgabe</label><input type="number" id="km-rueck" placeholder="bei Rückgabe"></div>
+      </div>
+      <div class="tip"><p><strong>Hinweis</strong>Freikilometer sind unbegrenzt. Es entstehen keine zusätzlichen Kilometerkosten.</p></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">⛽</span>Tankstand</div>
+      <div class="grid2">
+        <div class="field"><label>Tankfüllung Ausgabe</label>
+          <select id="tank-aus">
+            <option value="">wählen…</option>
+            <option>Voll (100 %)</option>
+            <option>¾ (ca. 75 %)</option>
+            <option>½ (ca. 50 %)</option>
+            <option>¼ (ca. 25 %)</option>
+          </select>
+        </div>
+        <div class="field"><label>Rückgabe Tankstand</label>
+          <select id="tank-rueck">
+            <option value="">wählen…</option>
+            <option>Voll (100 %)</option>
+            <option>¾ (ca. 75 %)</option>
+            <option>½ (ca. 50 %)</option>
+            <option>¼ (ca. 25 %)</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Kraftstoff</label><input type="text" value="Diesel" readonly style="background:#f0f4f8;color:#888"></div>
+    </div>
+
+    <div class="btn-bar"><button class="btn-next btn-full" onclick="goTo(1)">Weiter: Außen →</button></div>
+  </div>
+
+  <!-- ── 1: AUSSEN ── -->
+  <div class="section" id="sec1">
+    <div class="sec-header">
+      <h2>Außenbereich</h2>
+      <p>Fahrzeug gemeinsam im Uhrzeigersinn umrunden und alle Seiten dokumentieren.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🚐</span>Karosserie & Lackierung</div>
+      <div class="tip"><p><strong>Einweisung</strong>Alle vier Seiten + Dach gemeinsam abgehen. Bestehende Schäden markieren und fotografieren. Mieter bestätigt Kenntnis des Vorschadens.</p></div>
+      <div class="tip" style="border-left-color:#8b1a1a;background:#fdeaea"><p style="color:#8b1a1a"><strong>⚠️ Reinigungshinweise — Folie schützen</strong>Keine Waschstraße! Nur Handwäsche mit Lappen oder Bürste erlaubt. Keine Lackkonservierung verwenden — das Fahrzeug ist vollfoliert.</p></div>
+      <div class="check-item"><input type="checkbox" id="k1"><div class="check-info"><strong>Vorne</strong><span>Stoßstange, Kühlergrill, Scheinwerfer</span></div></div>
+      <div class="check-item"><input type="checkbox" id="k2"><div class="check-info"><strong>Fahrerseite (links)</strong><span>Türen, Schweller, Seitenwand</span></div></div>
+      <div class="check-item"><input type="checkbox" id="k3"><div class="check-info"><strong>Beifahrerseite (rechts)</strong><span>Schiebetür, Seitenwand, Fenster</span></div></div>
+      <div class="check-item"><input type="checkbox" id="k4"><div class="check-info"><strong>Hinten</strong><span>Hecktüren, Rückleuchten, Stoßstange</span></div></div>
+      <div class="check-item"><input type="checkbox" id="k5"><div class="check-info"><strong>Dach</strong><span>Dachfläche, Lüftungsöffnungen, Dichtungen</span></div></div>
+      <div class="field" style="margin-top:10px"><label>Vorhandene Schäden / Vorschäden</label><textarea id="schaden-karosserie" placeholder="z.B. Kratzer Fahrerseite hinten links, ca. 5 cm — bekannt und dokumentiert"></textarea></div>
+      <div class="status-row" id="status-karosserie">
+        <button class="stat-btn" onclick="setStatus('karosserie','ok',this)">✓ Ohne Befund</button>
+        <button class="stat-btn" onclick="setStatus('karosserie','mangel',this)">⚠ Mängel</button>
+        <button class="stat-btn" onclick="setStatus('karosserie','schaden',this)">✗ Schäden</button>
+      </div>
+      <div class="photo-wrap">
+        <button class="photo-btn"><span>📷 Fotos aufnehmen</span><input type="file" accept="image/*" capture="environment" multiple onchange="addPhotos(this,'ph-karosserie')"></button>
+        <div class="photo-grid" id="ph-karosserie"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🛞</span>Räder & Reifen</div>
+      <div class="check-item"><input type="checkbox" id="r1"><div class="check-info"><strong>Reifenprofil & Luftdruck</strong><span>Alle 4 Reifen prüfen (mind. 4 mm Profil)</span></div></div>
+      <div class="check-item"><input type="checkbox" id="r2"><div class="check-info"><strong>Reserverad</strong><span>Vorhanden und aufgepumpt</span></div></div>
+      <div class="check-item"><input type="checkbox" id="r3"><div class="check-info"><strong>Wagenheber & Radschlüssel</strong><span>Im Stauraum unter dem Beifahrersitz</span></div></div>
+      <div class="photo-wrap">
+        <button class="photo-btn"><span>📷 Fotos Reifen</span><input type="file" accept="image/*" capture="environment" multiple onchange="addPhotos(this,'ph-reifen')"></button>
+        <div class="photo-grid" id="ph-reifen"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">⛺</span>Sonnensegel & Außenzubehör</div>
+      <div class="tip"><p><strong>Einweisung Sonnensegel</strong>Auf ebenem Untergrund aufbauen. Seile gleichmäßig spannen. Nur bis Windstärke 4 Bft benutzen — bei aufkommendem Wind sofort einrollen. Nie unbeaufsichtigt bei schlechtem Wetter stehen lassen.</p></div>
+      <div class="check-item"><input type="checkbox" id="s1"><div class="check-info"><strong>Sonnensegel (3 Stk.)</strong><span>Alle drei vollständig, keine Risse, sauber gefaltet</span></div></div>
+      <div class="check-item"><input type="checkbox" id="s2"><div class="check-info"><strong>Heringe & Seile</strong><span>Vollständiger Satz vorhanden</span></div></div>
+      <div class="check-item"><input type="checkbox" id="s3"><div class="check-info"><strong>Campingstühle (2 Stk.)</strong><span>Vollständig, keine Beschädigungen</span></div></div>
+      <div class="check-item"><input type="checkbox" id="s4"><div class="check-info"><strong>Campingtisch (1 Stk.)</strong><span>Vollständig, Mechanik ok</span></div></div>
+      <div class="photo-wrap">
+        <button class="photo-btn"><span>📷 Fotos Außenzubehör</span><input type="file" accept="image/*" capture="environment" multiple onchange="addPhotos(this,'ph-segel')"></button>
+        <div class="photo-grid" id="ph-segel"></div>
+      </div>
+    </div>
+
+    <div class="btn-bar">
+      <button class="btn-prev" onclick="goTo(0)">← Zurück</button>
+      <button class="btn-next" onclick="goTo(2)">Weiter: Innen →</button>
+    </div>
+  </div>
+
+  <!-- ── 2: INNEN ── -->
+  <div class="section" id="sec2">
+    <div class="sec-header">
+      <h2>Innenraum</h2>
+      <p>Alle Bereiche gemeinsam besichtigen und Zustand dokumentieren.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🚗</span>Fahrerbereich</div>
+      <div class="tip"><p><strong>Einweisung Automatikgetriebe</strong>Fahrzeug startet nur in Position P. Wählhebel: P – R – N – D. Niemals während der Fahrt in P oder R schalten. Beim Parken immer Handbremse anziehen und P einlegen.</p></div>
+      <div class="check-item"><input type="checkbox" id="f1"><div class="check-info"><strong>Fahrer- & Beifahrersitz</strong><span>Verstellung, Gurte in Ordnung</span></div></div>
+      <div class="check-item"><input type="checkbox" id="f2"><div class="check-info"><strong>Stauraum unter Beifahrersitz</strong><span>Inhalt vollständig (Werkzeug, Dokumente)</span></div></div>
+      <div class="check-item"><input type="checkbox" id="f3"><div class="check-info"><strong>Armaturenbrett</strong><span>Keine Warnleuchten aktiv beim Start</span></div></div>
+      <div class="check-item"><input type="checkbox" id="f4"><div class="check-info"><strong>Spiegel & Rückfahrkamera</strong><span>Eingestellt, Bild klar</span></div></div>
+      <div class="check-item"><input type="checkbox" id="f5"><div class="check-info"><strong>Fahrzeugpapiere & Verbandskasten</strong><span>Im Fahrzeug vorhanden und gezeigt</span></div></div>
+      <div class="photo-wrap">
+        <button class="photo-btn"><span>📷 Fotos Fahrerbereich</span><input type="file" accept="image/*" capture="environment" multiple onchange="addPhotos(this,'ph-cockpit')"></button>
+        <div class="photo-grid" id="ph-cockpit"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🛏️</span>Schlaf- & Wohnbereich</div>
+      <div class="check-item"><input type="checkbox" id="b1"><div class="check-info"><strong>Betten</strong><span>Matratzen und Bezüge vollständig, keine Schäden</span></div></div>
+      <div class="check-item"><input type="checkbox" id="b2"><div class="check-info"><strong>Loungesitzgruppe</strong><span>Polster, Mechanik in Ordnung</span></div></div>
+      <div class="check-item"><input type="checkbox" id="b3"><div class="check-info"><strong>Tisch</strong><span>Mechanik funktioniert, keine Schäden</span></div></div>
+      <div class="check-item"><input type="checkbox" id="b4"><div class="check-info"><strong>Fenster & Rollläden / Jalousien</strong><span>Alle öffnen und schließen korrekt, Dichtungen intakt</span></div></div>
+      <div class="photo-wrap">
+        <button class="photo-btn"><span>📷 Fotos Wohnbereich</span><input type="file" accept="image/*" capture="environment" multiple onchange="addPhotos(this,'ph-wohn')"></button>
+        <div class="photo-grid" id="ph-wohn"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🍳</span>Küchenbereich</div>
+      <div class="check-item"><input type="checkbox" id="kue1"><div class="check-info"><strong>Spülbecken & Armatur</strong><span>Funktion, Ablauf, Mischer in Ordnung</span></div></div>
+      <div class="check-item"><input type="checkbox" id="kue2"><div class="check-info"><strong>Kühlschrank</strong><span>Kühlt, Türdichtung intakt, sauber</span></div></div>
+      <div class="check-item"><input type="checkbox" id="kue3"><div class="check-info"><strong>Geschirr & Besteck</strong><span>Vollständigkeit geprüft</span></div></div>
+      <div class="field" style="margin-top:10px"><label>Fehlende Küchenutensilien</label><textarea id="kueche-fehlend" placeholder="z.B. 1 Tasse fehlt — bitte leer lassen wenn vollständig"></textarea></div>
+      <div class="photo-wrap">
+        <button class="photo-btn"><span>📷 Fotos Küche</span><input type="file" accept="image/*" capture="environment" multiple onchange="addPhotos(this,'ph-kueche')"></button>
+        <div class="photo-grid" id="ph-kueche"></div>
+      </div>
+    </div>
+
+    <div class="btn-bar">
+      <button class="btn-prev" onclick="goTo(1)">← Zurück</button>
+      <button class="btn-next" onclick="goTo(3)">Weiter: Technik →</button>
+    </div>
+  </div>
+
+  <!-- ── 3: TECHNIK ── -->
+  <div class="section" id="sec3">
+    <div class="sec-header">
+      <h2>Fahrzeugtechnik</h2>
+      <p>Alle technischen Funktionen gemeinsam prüfen und einweisen.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🔧</span>Motor & Betriebsmittel</div>
+      <div class="tip"><p><strong>VW Crafter – Tipp</strong>Motoröl vor jeder längeren Fahrt prüfen. Lenkradschloss: Motor aus + Lenkrad drehen bis es einrastet. Zum Starten: Lenkrad leicht bewegen und Zündung.</p></div>
+      <div class="check-item"><input type="checkbox" id="mo1"><div class="check-info"><strong>Motoröl</strong><span>Füllstand im grünen Bereich, keine sichtbaren Leckagen</span></div></div>
+      <div class="check-item"><input type="checkbox" id="mo3"><div class="check-info"><strong>Scheibenwaschanlage</strong><span>Wasserstand und Funktion ok</span></div></div>
+      <div class="check-item"><input type="checkbox" id="mo4"><div class="check-info"><strong>Bremsen</strong><span>Pedalweg normal, keine Geräusche</span></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">❄️</span>Klimaanlage & Lüftung</div>
+      <div class="tip"><p><strong>Einweisung</strong>Klimaanlage nicht unter 16 °C stellen. Bei Standzeiten Lüfter auf Umluft schalten, um Gerüche zu vermeiden.</p></div>
+      <div class="check-item"><input type="checkbox" id="kl1"><div class="check-info"><strong>Klimaanlage Fahrerhaus</strong><span>Kühlt, alle Regler funktionieren</span></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🔥</span>Heizung</div>
+      <div class="tip"><p><strong>Einweisung Heizung</strong>Heizung über das Bedienpanel ein- und ausschalten. Läuft auch bei ausgeschaltetem Motor (Standbetrieb). Niemals in geschlossenen Räumen, Garagen oder Tiefgaragen betreiben. Auf ausreichende Belüftung achten.</p></div>
+      <div class="check-item"><input type="checkbox" id="h1"><div class="check-info"><strong>Heizung startet</strong><span>Zündet sauber, Gebläse läuft an</span></div></div>
+      <div class="check-item"><input type="checkbox" id="h2"><div class="check-info"><strong>Temperaturregelung</strong><span>Regler am Panel funktioniert korrekt</span></div></div>
+      <div class="field" style="margin-top:10px"><label>Anmerkungen Heizung</label><textarea id="heizung-note" placeholder="Besonderheiten, Fehler…"></textarea></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🛡️</span>Sicherheitsausrüstung</div>
+      <div class="check-item"><input type="checkbox" id="si1"><div class="check-info"><strong>Rauchmelder</strong><span>Testknopf piept, Batterie ok</span></div></div>
+      <div class="check-item"><input type="checkbox" id="si2"><div class="check-info"><strong>Feuerlöscher</strong><span>Vorhanden, Plombe intakt, Druckanzeige grün</span></div></div>
+      <div class="check-item"><input type="checkbox" id="si3"><div class="check-info"><strong>Warndreieck & Warnweste</strong><span>Im Fahrzeug vorhanden und gezeigt</span></div></div>
+    </div>
+
+    <div class="btn-bar">
+      <button class="btn-prev" onclick="goTo(2)">← Zurück</button>
+      <button class="btn-next" onclick="goTo(4)">Weiter: Energie →</button>
+    </div>
+  </div>
+
+  <!-- ── 4: ENERGIE ── -->
+  <div class="section" id="sec4">
+    <div class="sec-header">
+      <h2>Stromversorgung</h2>
+      <p>Elektro-Panel und alle Stromanschlüsse gemeinsam durchgehen.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">⚡</span>Elektro-Panel</div>
+      <div class="tip"><p><strong>Einweisung Panel</strong>Verbraucher über die jeweiligen Schalter am Panel aktivieren. Ladezustand der Aufbaubatterie im Display ablesen. Batterie nie unter 20 % entladen — beschädigt die Akkus dauerhaft. Solar lädt automatisch bei Sonnenlicht. Der Ladebooster lädt die Aufbaubatterie während der Fahrt über die Lichtmaschine.</p></div>
+      <div class="check-item"><input type="checkbox" id="el1"><div class="check-info"><strong>Batterieanzeige</strong><span>Ladestand abgelesen und notiert</span></div></div>
+      <div class="check-item"><input type="checkbox" id="el-solar"><div class="check-info"><strong>Solaranzeige</strong><span>Ladeleistung Solar im Display ablesbar, Funktion erklärt</span></div></div>
+      <div class="check-item"><input type="checkbox" id="el-boost"><div class="check-info"><strong>Ladebooster</strong><span>Funktion erklärt — lädt Aufbaubatterie während der Fahrt</span></div></div>
+      <div class="check-item"><input type="checkbox" id="el2"><div class="check-info"><strong>12-V-Steckdosen</strong><span>Funktion geprüft</span></div></div>
+      <div class="check-item"><input type="checkbox" id="el3"><div class="check-info"><strong>230-V-Steckdosen (Landstrom)</strong><span>Nur mit CEE-Anschluss aktiv</span></div></div>
+      <div class="check-item"><input type="checkbox" id="el4"><div class="check-info"><strong>USB-Ladebuchsen</strong><span>Alle Buchsen geprüft</span></div></div>
+      <div class="field" style="margin-top:10px"><label>Batteriestand bei Übergabe (%)</label><input type="number" id="akku-stand" placeholder="z.B. 85" min="0" max="100"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🔌</span>Landstromanschluss</div>
+      <div class="tip"><p><strong>Einweisung</strong>CEE-Kabel (blau, 16 A) zuerst in die Fahrzeugbuchse stecken, dann am Campingplatz-Verteiler einstecken. Beim Trennen umgekehrt vorgehen. Kabel liegt im Stauraum.</p></div>
+      <div class="check-item"><input type="checkbox" id="ls1"><div class="check-info"><strong>CEE-Kabel vorhanden</strong><span>Länge, Zustand und Stecker geprüft</span></div></div>
+      <div class="photo-wrap">
+        <button class="photo-btn"><span>📷 Fotos Panel / Elektrik</span><input type="file" accept="image/*" capture="environment" multiple onchange="addPhotos(this,'ph-strom')"></button>
+        <div class="photo-grid" id="ph-strom"></div>
+      </div>
+    </div>
+
+    <div class="btn-bar">
+      <button class="btn-prev" onclick="goTo(3)">← Zurück</button>
+      <button class="btn-next" onclick="goTo(5)">Weiter: Wasser →</button>
+    </div>
+  </div>
+
+  <!-- ── 5: WASSER ── -->
+  <div class="section" id="sec5">
+    <div class="sec-header">
+      <h2>Wasserversorgung</h2>
+      <p>Frischwasser, Grauwasser, Dusche und Toilette einweisen.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">💧</span>Frischwassertank</div>
+      <div class="tip"><p><strong>Einweisung</strong>Tank wird leer übergeben — Mieter füllt eigenverantwortlich am Campingplatz (Trinkwasserschlauch). Nur Trinkwasser verwenden. Vor der Rückgabe vollständig entleeren.</p></div>
+      <div class="check-item"><input type="checkbox" id="fw1"><div class="check-info"><strong>Einfüllstutzen</strong><span>Position gezeigt, Y-Verteiler erklärt</span></div></div>
+      <div class="check-item"><input type="checkbox" id="fw2"><div class="check-info"><strong>Wasserpumpe</strong><span>Funktion erklärt, läuft an</span></div></div>
+      <div class="tip" style="margin-top:10px"><p><strong>Übergabe-Zustand</strong>Frischwassertank wird leer übergeben.</p></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🌊</span>Grauwassertank</div>
+      <div class="tip"><p><strong>Einweisung</strong>Grauwasser (Abwasser aus Spüle und Dusche) sammelt sich im Tank. Bei ¾ Füllstand entleeren. Entleerung ausschließlich an dafür vorgesehenen Entsorgungsstationen auf Campingplätzen — nie in die Natur!</p></div>
+      <div class="check-item"><input type="checkbox" id="gw1"><div class="check-info"><strong>Füllstand Grauwasser</strong><span>Muss leer übergeben werden</span></div></div>
+      <div class="field" style="margin-top:10px"><label>Grauwasserstand bei Übergabe</label>
+        <select id="gw-stand"><option value="">wählen…</option><option>Leer ✓</option><option>¼</option><option>½</option><option>¾</option><option>Voll</option></select>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🚿</span>Dusche</div>
+      <div class="tip"><p><strong>Einweisung</strong>Warm-/Kaltwassermischer einstellen. Warmwasserbereiter am Panel aktivieren (Aufheizzeit ca. 20 Min.). Nach der Nutzung Vorhang/Tür offen lassen und gut trocknen — Schimmelvorbeugung!</p></div>
+      <div class="check-item"><input type="checkbox" id="du1"><div class="check-info"><strong>Duschkabine</strong><span>Sauber, Vorhang/Tür dicht, kein Schimmel</span></div></div>
+      <div class="check-item"><input type="checkbox" id="du2"><div class="check-info"><strong>Warmwasser</strong><span>Funktion geprüft, Boiler-Bedienung erklärt</span></div></div>
+      <div class="check-item"><input type="checkbox" id="du3"><div class="check-info"><strong>Duschkopf & Schlauch</strong><span>Keine Schäden, dicht</span></div></div>
+      <div class="photo-wrap">
+        <button class="photo-btn"><span>📷 Fotos Bad / Dusche</span><input type="file" accept="image/*" capture="environment" multiple onchange="addPhotos(this,'ph-dusche')"></button>
+        <div class="photo-grid" id="ph-dusche"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🚽</span>Trockentrenntoilette</div>
+      <div class="tip"><p><strong>Einweisung Trockentrenntoilette</strong>Festes und flüssiges Abfall getrennt sammeln (Trenneinsatz). Flüssigkeitsbehälter bei ¾ Füllstand an geeigneter Stelle entleeren (Toilette am Campingplatz). Feststoffbehälter erst nach der Reise entleeren. Reinigung ausschließlich mit Essig — keine chemischen Reiniger!</p></div>
+      <div class="check-item"><input type="checkbox" id="to1"><div class="check-info"><strong>Feststoffbehälter</strong><span>Leer und sauber übergeben</span></div></div>
+      <div class="check-item"><input type="checkbox" id="to2"><div class="check-info"><strong>Flüssigkeitsbehälter</strong><span>Leer und sauber übergeben</span></div></div>
+      <div class="check-item"><input type="checkbox" id="to3"><div class="check-info"><strong>Trenneinsatz</strong><span>Korrekt eingesetzt, Funktion erklärt</span></div></div>
+      <div class="check-item"><input type="checkbox" id="to-essig"><div class="check-info"><strong>Reinigung mit Essig erklärt</strong><span>Nur Essig verwenden — kein Chemiereiniger</span></div></div>
+      <div class="photo-wrap">
+        <button class="photo-btn"><span>📷 Fotos Toilette</span><input type="file" accept="image/*" capture="environment" multiple onchange="addPhotos(this,'ph-toilette')"></button>
+        <div class="photo-grid" id="ph-toilette"></div>
+      </div>
+    </div>
+
+    <div class="btn-bar">
+      <button class="btn-prev" onclick="goTo(4)">← Zurück</button>
+      <button class="btn-next" onclick="goTo(6)">Weiter: Zubehör →</button>
+    </div>
+  </div>
+
+  <!-- ── 6: ZUBEHÖR ── -->
+  <div class="section" id="sec6">
+    <div class="sec-header">
+      <h2>Schlüssel & Zubehör</h2>
+      <p>Vollständigkeit aller mitgegebenen Gegenstände prüfen.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🔑</span>Schlüssel</div>
+      <div class="check-item"><input type="checkbox" id="sk1">
+        <div class="check-info"><strong>Fahrzeugschlüssel</strong>
+          <span>Anzahl: <input type="number" id="anz-fzschl" value="1" min="1" max="5" style="width:44px;padding:2px 6px;display:inline-block;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center"> Stk. übergeben</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">📦</span>Mitgegebenes Zubehör</div>
+      <div class="check-item"><input type="checkbox" id="z1"><div class="check-info"><strong>Sonnensegel (3 Stk.) komplett</strong><span>Inkl. Heringe und Seile</span></div></div>
+      <div class="check-item"><input type="checkbox" id="z2"><div class="check-info"><strong>Campingstühle (2 Stk.)</strong></div></div>
+      <div class="check-item"><input type="checkbox" id="z3"><div class="check-info"><strong>Campingtisch (1 Stk.)</strong></div></div>
+      <div class="check-item"><input type="checkbox" id="z4"><div class="check-info"><strong>CEE-Landstromkabel</strong></div></div>
+      <div class="check-item"><input type="checkbox" id="z5"><div class="check-info"><strong>Kfz-Verbandskasten</strong></div></div>
+      <div class="check-item"><input type="checkbox" id="z6"><div class="check-info"><strong>Warndreieck & 2× Warnweste</strong></div></div>
+      <div class="field" style="margin-top:8px"><label>Sonstiges mitgegeben</label><textarea id="sonstiges-mit" placeholder="z.B. Adapter, Trinkwasserschlauch…"></textarea></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">📋</span>Allgemeine Hinweise</div>
+      <div class="tip"><p><strong>Wichtige Regeln</strong>Keine Haustiere ohne ausdrückliche Absprache. Rauchen nur außerhalb des Fahrzeugs. Campingplatzgebühren trägt der Mieter. Buchung läuft über Paul Camper.</p></div>
+      <div class="check-item"><input type="checkbox" id="hi1"><div class="check-info"><strong>Pannenhilfe & Notfallkontakt</strong><span>Nummern erklärt: ADAC + Vermieter</span></div></div>
+      <div class="check-item"><input type="checkbox" id="hi2"><div class="check-info"><strong>Rückgabebedingungen</strong><span>Fahrzeug besenrein, Tanks leer, Batterie mind. 80 %</span></div></div>
+      <div class="field" style="margin-top:8px"><label>Sonstige Vereinbarungen</label><textarea id="vereinbarungen" placeholder="Freitext für besondere Absprachen…"></textarea></div>
+    </div>
+
+    <div class="btn-bar">
+      <button class="btn-prev" onclick="goTo(5)">← Zurück</button>
+      <button class="btn-next" onclick="goTo(7)">Weiter: Abschluss →</button>
+    </div>
+  </div>
+
+  <!-- ── 7: ABSCHLUSS ── -->
+  <div class="section" id="sec7">
+    <div class="sec-header">
+      <h2>Abschluss & Versand</h2>
+      <p>Protokoll prüfen, unterschreiben und direkt an Mieter senden.</p>
+    </div>
+
+    <div class="card" id="summary-card">
+      <div class="card-title"><span class="ci">📊</span>Zusammenfassung</div>
+      <div id="summary-content"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">✍️</span>Unterschrift Vermieter</div>
+      <p class="sig-hint">Mit Finger unterschreiben:</p>
+      <div class="sig-wrap">
+        <canvas class="sig-canvas" id="sigV" height="110"></canvas>
+        <button class="sig-clear-btn" onclick="clearSig('sigV')">Löschen</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">✍️</span>Unterschrift Mieter</div>
+      <p class="sig-hint">Mit Finger unterschreiben:</p>
+      <div class="sig-wrap">
+        <canvas class="sig-canvas" id="sigM" height="110"></canvas>
+        <button class="sig-clear-btn" onclick="clearSig('sigM')">Löschen</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">💬</span>Abschließende Anmerkungen</div>
+      <div class="field"><textarea id="final-notes" placeholder="Besondere Vereinbarungen, bekannte Schäden, Hinweise…" style="min-height:80px"></textarea></div>
+    </div>
+
+    <button class="btn-full btn-green" onclick="doFinalize()">📧 PDF erstellen & an Mieter senden</button>
+    <button class="btn-full btn-primary" onclick="doDownloadOnly()">⬇️ Nur PDF speichern</button>
+    <button class="btn-full btn-secondary" onclick="resetAll()">🔄 Neues Protokoll beginnen</button>
+
+    <div class="btn-bar"><button class="btn-prev" onclick="goTo(6)">← Zurück</button></div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ARCHIVE OVERLAY -->
+<div class="archive-overlay" id="archiveOverlay" onclick="closeArchive(event)">
+  <div class="archive-sheet">
+    <div class="archive-handle"></div>
+    <div class="archive-title">📂 Protokoll-Archiv</div>
+    <div id="archiveList"></div>
+    <button class="btn-full btn-secondary" style="margin-top:8px" onclick="closeArchive()">Schließen</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ──
+let currentSection = 0;
+const photoData = {};
+const ARCHIVE_KEY = 'fm_protokolle';
+
+// ── NAVIGATION ──
+function goTo(idx) {
+  document.querySelectorAll('.section').forEach((s,i) => s.classList.toggle('active', i === idx));
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', i === idx);
+  });
+  currentSection = idx;
+  updateProgress();
+  if (idx === 7) buildSummary();
+  window.scrollTo(0, 0);
+  // scroll tab into view
+  const tabs = document.querySelectorAll('.tab-btn');
+  if (tabs[idx]) tabs[idx].scrollIntoView({inline:'center', behavior:'smooth'});
+}
+
+// ── PROGRESS ──
+function updateProgress() {
+  const boxes = document.querySelectorAll('input[type=checkbox]');
+  const checked = [...boxes].filter(b => b.checked).length;
+  const total = boxes.length;
+  const pct = total > 0 ? Math.round(checked / total * 100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = checked + ' von ' + total + ' Punkten erledigt';
+}
+document.addEventListener('change', updateProgress);
+
+// ── PHOTOS ──
+function addPhotos(input, zoneId) {
+  if (!photoData[zoneId]) photoData[zoneId] = [];
+  Array.from(input.files).forEach(f => {
+    const r = new FileReader();
+    r.onload = e => { photoData[zoneId].push(e.target.result); renderPhotos(zoneId); };
+    r.readAsDataURL(f);
+  });
+  input.value = '';
+}
+function renderPhotos(zoneId) {
+  const grid = document.getElementById(zoneId);
+  if (!grid) return;
+  grid.innerHTML = '';
+  (photoData[zoneId] || []).forEach((src, i) => {
+    const d = document.createElement('div');
+    d.className = 'photo-thumb';
+    d.innerHTML = `<img src="${src}" alt="Foto"><button class="photo-del" onclick="delPhoto('${zoneId}',${i})">×</button>`;
+    grid.appendChild(d);
+  });
+}
+function delPhoto(zoneId, idx) {
+  photoData[zoneId].splice(idx, 1);
+  renderPhotos(zoneId);
+}
+
+// ── STATUS BUTTONS ──
+function setStatus(key, val, btn) {
+  const row = document.getElementById('status-' + key);
+  row.querySelectorAll('.stat-btn').forEach(b => b.className = 'stat-btn');
+  btn.classList.add('sel-' + val);
+  btn.dataset.selected = val;
+}
+
+// ── SIGNATURE ──
+function initSig(id) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  canvas.width = canvas.parentElement.clientWidth || 340;
+  const ctx = canvas.getContext('2d');
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  let drawing = false, lastX, lastY;
+  const getPos = e => {
+    const r = canvas.getBoundingClientRect();
+    const src = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - r.left, y: src.clientY - r.top };
+  };
+  canvas.addEventListener('pointerdown', e => { drawing = true; const p = getPos(e); lastX = p.x; lastY = p.y; canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener('pointermove', e => {
+    if (!drawing) return;
+    const p = getPos(e);
+    ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke();
+    lastX = p.x; lastY = p.y;
+  });
+  canvas.addEventListener('pointerup', () => drawing = false);
+  canvas.addEventListener('pointercancel', () => drawing = false);
+}
+function clearSig(id) {
+  const c = document.getElementById(id);
+  c.getContext('2d').clearRect(0, 0, c.width, c.height);
+}
+function isSigEmpty(id) {
+  const c = document.getElementById(id);
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  return !d.some(v => v !== 0);
+}
+
+// ── HELPERS ──
+function v(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+function showToast(msg, dur = 3000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ── SUMMARY ──
+function buildSummary() {
+  const checked = [...document.querySelectorAll('input[type=checkbox]:checked')].length;
+  const total = document.querySelectorAll('input[type=checkbox]').length;
+  const rows = [
+    ['Mieter', v('mieter-name') || '—'],
+    ['Telefon', v('mieter-tel') || '—'],
+    ['E-Mail', v('mieter-mail') || '—'],
+    ['Ausgabe', (v('datum-aus') ? fmtDate(v('datum-aus')) : '—') + ' ' + (v('time-aus') || '')],
+    ['Rückgabe', (v('datum-rueck') ? fmtDate(v('datum-rueck')) : '—') + ' ' + (v('time-rueck') || '')],
+    ['KM bei Ausgabe', v('km-aus') ? v('km-aus') + ' km' : '—'],
+    ['Tankstand Ausgabe', v('tank-aus') || '—'],
+    ['Batteriestand', v('akku-stand') ? v('akku-stand') + ' %' : '—'],
+    ['Grauwasser', v('gw-stand') || '—'],
+    ['Freikilometer', 'Unbegrenzt'],
+  ];
+  const el = document.getElementById('summary-content');
+  el.innerHTML = rows.map(r =>
+    `<div class="sum-row"><span class="sum-key">${r[0]}</span><span class="sum-val">${r[1]}</span></div>`
+  ).join('') +
+  `<div class="sum-row"><span class="sum-key">Checkpunkte</span>
+   <span class="badge ${checked === total ? 'badge-ok' : 'badge-warn'}">${checked} / ${total}</span></div>`;
+}
+
+function fmtDate(s) {
+  if (!s) return '';
+  const [y, m, d] = s.split('-');
+  return d + '.' + m + '.' + y;
+}
+
+// ── PDF GENERATION ──
+function buildPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  let y = 0;
+
+  function newPage() { doc.addPage(); y = 18; }
+  function checkY(need) { if (y + need > H - 15) newPage(); }
+
+  // Header
+  doc.setFillColor(26, 58, 92);
+  doc.rect(0, 0, W, 26, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(15); doc.setFont(undefined, 'bold');
+  doc.text('Übergabeprotokoll Wohnmobil', W / 2, 11, { align: 'center' });
+  doc.setFontSize(9); doc.setFont(undefined, 'normal');
+  doc.text('Freiraummobil · VW Crafter · BO FR 1000 · Bj. 2022', W / 2, 17, { align: 'center' });
+  doc.text('Erstellt: ' + new Date().toLocaleString('de-DE'), W / 2, 22, { align: 'center' });
+  doc.setTextColor(0, 0, 0);
+  y = 32;
+
+  function sectionHead(title) {
+    checkY(12);
+    doc.setFillColor(232, 240, 248);
+    doc.rect(12, y - 4, W - 24, 8, 'F');
+    doc.setFontSize(10); doc.setFont(undefined, 'bold');
+    doc.setTextColor(26, 58, 92);
+    doc.text(title, 15, y + 0.5);
+    doc.setTextColor(0, 0, 0); doc.setFont(undefined, 'normal');
+    y += 10;
+  }
+
+  function row(label, val) {
+    checkY(7);
+    doc.setFontSize(9); doc.setFont(undefined, 'bold');
+    doc.text(label + ':', 15, y);
+    doc.setFont(undefined, 'normal');
+    const lines = doc.splitTextToSize(String(val || '—'), W - 80);
+    doc.text(lines, 65, y);
+    y += Math.max(6, lines.length * 5);
+  }
+
+  function checkRow(label, checked, note) {
+    checkY(6);
+    doc.setFontSize(9);
+    doc.text(checked ? '☑' : '☐', 15, y);
+    doc.text(label, 22, y);
+    if (note) { doc.setTextColor(120, 120, 120); doc.text('(' + note + ')', 22, y + 4); doc.setTextColor(0,0,0); y += 4; }
+    y += 6;
+  }
+
+  sectionHead('Übergabedaten');
+  row('Mieter', v('mieter-name')); row('Telefon', v('mieter-tel')); row('E-Mail', v('mieter-mail'));
+  row('Führerschein', v('mieter-fs'));
+  row('Ausgabe', fmtDate(v('datum-aus')) + ' ' + v('time-aus'));
+  row('Rückgabe', fmtDate(v('datum-rueck')) + ' ' + v('time-rueck'));
+  row('KM Ausgabe', v('km-aus') ? v('km-aus') + ' km' : ''); row('KM Rückgabe', v('km-rueck') ? v('km-rueck') + ' km' : '');
+  row('Freikilometer', 'Unbegrenzt');
+  row('Tankstand Ausgabe', v('tank-aus')); row('Kraftstoff', 'Diesel');
+  y += 3;
+
+  sectionHead('Außenbereich');
+  doc.setFontSize(8); doc.setTextColor(139,26,26);
+  checkY(8); doc.text('⚠ Nur Handwäsche! Keine Waschanlagen. Keine Lackkonservierung (Folierung).', 15, y); y += 7;
+  doc.setTextColor(0,0,0); doc.setFontSize(9);
+  checkRow('Vorne (Stoßstange, Scheinwerfer)', document.getElementById('k1').checked);
+  checkRow('Fahrerseite', document.getElementById('k2').checked);
+  checkRow('Beifahrerseite', document.getElementById('k3').checked);
+  checkRow('Hinten', document.getElementById('k4').checked);
+  checkRow('Dach', document.getElementById('k5').checked);
+  if (v('schaden-karosserie')) row('Vorschäden', v('schaden-karosserie'));
+  checkRow('Reifen & Profil', document.getElementById('r1').checked);
+  checkRow('Reserverad', document.getElementById('r2').checked);
+  checkRow('Sonnensegel (3 Stk.)', document.getElementById('s1').checked);
+  checkRow('Campingstühle (2)', document.getElementById('s3').checked);
+  checkRow('Campingtisch', document.getElementById('s4').checked);
+  y += 3;
+
+  sectionHead('Innenraum');
+  checkRow('Fahrersitz / Beifahrersitz', document.getElementById('f1').checked);
+  checkRow('Stauraum unter Beifahrersitz', document.getElementById('f2').checked);
+  checkRow('Armaturenbrett', document.getElementById('f3').checked);
+  checkRow('Betten', document.getElementById('b1').checked);
+  checkRow('Loungesitzgruppe', document.getElementById('b2').checked);
+  checkRow('Tisch', document.getElementById('b3').checked);
+  checkRow('Fenster & Rollläden', document.getElementById('b4').checked);
+  checkRow('Kühlschrank', document.getElementById('kue2').checked);
+  checkRow('Spülbecken', document.getElementById('kue1').checked);
+  if (v('kueche-fehlend')) row('Fehlende Küchenutensilien', v('kueche-fehlend'));
+  y += 3;
+
+  sectionHead('Fahrzeugtechnik');
+  checkRow('Motoröl', document.getElementById('mo1').checked);
+  checkRow('Kühlwasser', document.getElementById('mo2').checked);
+  checkRow('Bremsen', document.getElementById('mo4').checked);
+  checkRow('Klimaanlage', document.getElementById('kl1').checked);
+  checkRow('Heizung startet', document.getElementById('h1').checked);
+  checkRow('Rauchmelder', document.getElementById('si1').checked);
+  checkRow('Feuerlöscher', document.getElementById('si2').checked);
+  if (v('heizung-note')) row('Anm. Heizung', v('heizung-note'));
+  y += 3;
+
+  sectionHead('Energie');
+  row('Batteriestand Ausgabe', v('akku-stand') ? v('akku-stand') + ' %' : '—');
+  checkRow('Batterieanzeige erklärt', document.getElementById('el1').checked);
+  checkRow('Solaranzeige erklärt', document.getElementById('el-solar').checked);
+  checkRow('Ladebooster erklärt', document.getElementById('el-boost').checked);
+  checkRow('CEE-Kabel vorhanden', document.getElementById('ls1').checked);
+  y += 3;
+
+  sectionHead('Wasser');
+  checkRow('Frischwasser: Einfüllstutzen gezeigt', document.getElementById('fw1').checked);
+  checkRow('Wasserpumpe Funktion erklärt', document.getElementById('fw2').checked);
+  row('Grauwasserstand Ausgabe', v('gw-stand'));
+  checkRow('Grauwasser leer übergeben', document.getElementById('gw1').checked);
+  checkRow('Duschkabine', document.getElementById('du1').checked);
+  checkRow('Trockentrenntoilette: Feststoffbehälter leer', document.getElementById('to1').checked);
+  checkRow('Trockentrenntoilette: Flüssigkeitsbehälter leer', document.getElementById('to2').checked);
+  checkRow('Trenneinsatz und Bedienung erklärt', document.getElementById('to3').checked);
+  checkRow('Reinigung mit Essig erklärt', document.getElementById('to-essig').checked);
+  y += 3;
+
+  sectionHead('Zubehör & Schlüssel');
+  row('Fahrzeugschlüssel übergeben', v('anz-fzschl') + ' Stk.');
+  checkRow('Sonnensegel (3 Stk.) komplett', document.getElementById('z1').checked);
+  checkRow('Campingstühle (2)', document.getElementById('z2').checked);
+  checkRow('Campingtisch', document.getElementById('z3').checked);
+  checkRow('CEE-Kabel', document.getElementById('z4').checked);
+  checkRow('Verbandskasten', document.getElementById('z5').checked);
+  checkRow('Warndreieck & Warnweste', document.getElementById('z6').checked);
+  if (v('sonstiges-mit')) row('Sonstiges mitgegeben', v('sonstiges-mit'));
+  if (v('vereinbarungen')) row('Sonstige Vereinbarungen', v('vereinbarungen'));
+  y += 3;
+
+  // Anmerkungen
+  if (v('final-notes')) { sectionHead('Anmerkungen'); row('Notizen', v('final-notes')); y += 3; }
+
+  // Unterschriften
+  checkY(50);
+  sectionHead('Unterschriften');
+  doc.setFontSize(9);
+  doc.text('Vermieter:', 15, y);
+  doc.text('Mieter:', W / 2 + 5, y);
+  y += 4;
+  const svC = document.getElementById('sigV');
+  const smC = document.getElementById('sigM');
+  try { if (!isSigEmpty('sigV')) doc.addImage(svC.toDataURL('image/png'), 'PNG', 15, y, 75, 28); } catch(e){}
+  try { if (!isSigEmpty('sigM')) doc.addImage(smC.toDataURL('image/png'), 'PNG', W/2+5, y, 75, 28); } catch(e){}
+  y += 32;
+  doc.line(15, y, 90, y); doc.line(W/2+5, y, W-15, y);
+  y += 4;
+  doc.setFontSize(8); doc.setTextColor(100,100,100);
+  doc.text('Vermieter', 15, y);
+  doc.text('Mieter: ' + (v('mieter-name') || ''), W/2+5, y);
+  doc.setTextColor(0,0,0);
+  y += 8;
+  doc.setFontSize(7); doc.setTextColor(140,140,140);
+  doc.text('Buchung über Paul Camper · fh@freiraummobile.de', W/2, y, { align: 'center' });
+
+  // Fotos
+  let photoPageStarted = false;
+  const zoneLabels = {
+    'ph-karosserie': 'Karosserie', 'ph-reifen': 'Reifen', 'ph-segel': 'Außenzubehör',
+    'ph-cockpit': 'Fahrerbereich', 'ph-wohn': 'Wohnbereich', 'ph-kueche': 'Küche',
+    'ph-strom': 'Elektrik', 'ph-dusche': 'Dusche', 'ph-toilette': 'Toilette'
+  };
+  Object.entries(photoData).forEach(([zone, imgs]) => {
+    if (!imgs || imgs.length === 0) return;
+    if (!photoPageStarted) { doc.addPage(); y = 18; photoPageStarted = true; doc.setFontSize(13); doc.setFont(undefined,'bold'); doc.text('Fotodokumentation', W/2, y, {align:'center'}); y += 10; doc.setFont(undefined,'normal'); }
+    const label = zoneLabels[zone] || zone;
+    checkY(10);
+    doc.setFontSize(9); doc.setFont(undefined,'bold'); doc.setTextColor(26,58,92);
+    doc.text(label, 15, y); doc.setTextColor(0,0,0); doc.setFont(undefined,'normal');
+    y += 6;
+    imgs.forEach((src, i) => {
+      const col = i % 2;
+      const xOff = col === 0 ? 15 : W/2 + 3;
+      if (col === 0 && i > 0) { y += 55; }
+      if (col === 0) checkY(58);
+      try { doc.addImage(src, 'JPEG', xOff, y, (W/2 - 20), 52); } catch(e){}
+      if (i === imgs.length - 1 && col === 0) y += 55;
+    });
+    y += 6;
+  });
+
+  return doc;
+}
+
+// ── ARCHIVE ──
+function saveToArchive(mieterName, datum) {
+  const archive = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]');
+  const entry = {
+    id: Date.now(),
+    mieter: mieterName || 'Unbekannt',
+    datum: datum || new Date().toLocaleDateString('de-DE'),
+    datumISO: new Date().toISOString(),
+    kmAus: v('km-aus'),
+    tank: v('tank-aus'),
+    checks: [...document.querySelectorAll('input[type=checkbox]:checked')].length + ' / ' + document.querySelectorAll('input[type=checkbox]').length
+  };
+  archive.unshift(entry); // newest first
+  localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archive));
+}
+
+function openArchive() {
+  const archive = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]');
+  const list = document.getElementById('archiveList');
+  if (archive.length === 0) {
+    list.innerHTML = '<div class="archive-empty">Noch keine gespeicherten Protokolle.</div>';
+  } else {
+    list.innerHTML = archive.map((e, i) =>
+      `<div class="archive-item">
+        <div class="archive-item-info">
+          <strong>${e.mieter}</strong>
+          <span>${e.datum} · ${e.checks} Punkte · Tank: ${e.tank || '—'}</span>
+        </div>
+        <button class="archive-item-btn" onclick="deleteArchiveEntry(${i})">🗑</button>
+      </div>`
+    ).join('');
+  }
+  document.getElementById('archiveOverlay').classList.add('open');
+}
+
+function deleteArchiveEntry(idx) {
+  if (!confirm('Dieses Protokoll aus dem Archiv löschen?')) return;
+  const archive = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]');
+  archive.splice(idx, 1);
+  localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archive));
+  openArchive();
+}
+
+function closeArchive(e) {
+  if (!e || e.target === document.getElementById('archiveOverlay') || e.type === 'click') {
+    document.getElementById('archiveOverlay').classList.remove('open');
+  }
+}
+
+// ── FINALIZE ──
+function getFileName() {
+  const name = v('mieter-name').replace(/\s+/g, '_') || 'Mieter';
+  const dat = v('datum-aus') || new Date().toISOString().slice(0,10);
+  return 'Uebergabe_' + name + '_' + dat + '.pdf';
+}
+
+function doFinalize() {
+  const mieterMail = v('mieter-mail');
+  const mieterName = v('mieter-name');
+  if (!mieterMail) { showToast('⚠️ Bitte E-Mail des Mieters eintragen.'); goTo(0); return; }
+
+  const doc = buildPDF();
+  const pdfBlob = doc.output('blob');
+  const fileName = getFileName();
+
+  // Save to archive
+  saveToArchive(mieterName, v('datum-aus') ? fmtDate(v('datum-aus')) : new Date().toLocaleDateString('de-DE'));
+
+  // Download PDF
+  const url = URL.createObjectURL(pdfBlob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fileName; a.click();
+  URL.revokeObjectURL(url);
+
+  // Build mailto
+  const subject = encodeURIComponent('Übergabeprotokoll Freiraummobil BO FR 1000');
+  const body = encodeURIComponent(
+    'Hallo ' + (mieterName || '') + ',\n\n' +
+    'anbei dein Übergabeprotokoll für das Freiraummobil (BO FR 1000, VW Crafter Bj. 2022).\n\n' +
+    'Ausgabedatum: ' + (fmtDate(v('datum-aus')) || '—') + '\n' +
+    'Rückgabedatum: ' + (fmtDate(v('datum-rueck')) || '—') + '\n' +
+    'Kilometerstand Ausgabe: ' + (v('km-aus') || '—') + ' km\n\n' +
+    'Das PDF wurde auf diesem Gerät gespeichert. Bitte das Protokoll als Anhang hinzufügen.\n\n' +
+    'Gute Fahrt und viel Spaß!\n' +
+    'Dein Freiraummobil-Team\n' +
+    'fh@freiraummobile.de'
+  );
+  const cc = encodeURIComponent('fh@freiraummobile.de');
+  const mailto = `mailto:${encodeURIComponent(mieterMail)}?cc=${cc}&subject=${subject}&body=${body}`;
+
+  setTimeout(() => {
+    window.location.href = mailto;
+    showToast('📥 PDF gespeichert · Mail-App öffnet sich …', 4000);
+  }, 800);
+}
+
+function doDownloadOnly() {
+  const doc = buildPDF();
+  saveToArchive(v('mieter-name'), v('datum-aus') ? fmtDate(v('datum-aus')) : new Date().toLocaleDateString('de-DE'));
+  doc.save(getFileName());
+  showToast('✅ PDF gespeichert und archiviert!');
+}
+
+// ── RESET ──
+function resetAll() {
+  if (!confirm('Wirklich ein neues Protokoll beginnen? Alle aktuellen Daten werden gelöscht.')) return;
+  document.querySelectorAll('input[type=text],input[type=number],input[type=email],input[type=tel],input[type=date],input[type=time],select,textarea').forEach(el => { if (!el.readOnly) el.value = ''; });
+  document.querySelectorAll('input[type=checkbox]').forEach(el => el.checked = false);
+  document.querySelectorAll('.stat-btn').forEach(b => b.className = 'stat-btn');
+  Object.keys(photoData).forEach(k => delete photoData[k]);
+  document.querySelectorAll('.photo-grid').forEach(g => g.innerHTML = '');
+  clearSig('sigV'); clearSig('sigM');
+  goTo(0); updateProgress();
+}
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => { initSig('sigV'); initSig('sigM'); }, 300);
+  updateProgress();
+  // Set today as default
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('datum-aus').value = today;
+  const now = new Date();
+  document.getElementById('time-aus').value = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+});
+</script>
+</body>
+</html>
