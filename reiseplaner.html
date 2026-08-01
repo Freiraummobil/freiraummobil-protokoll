@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Reiseplaner">
+<title>Reiseplaner – Freiraummobil</title>
+<link rel="stylesheet" href="lib/leaflet/leaflet.css">
+<script src="lib/leaflet/leaflet.js"></script>
+<style>
+:root {
+  --blue: #1a3a5c;
+  --blue-light: #e8f0f8;
+  --blue-mid: #2d5f8e;
+  --green: #2d6a2d;
+  --green-bg: #eaf3ea;
+  --amber: #7a4f00;
+  --amber-bg: #fdf3dc;
+  --red: #8b1a1a;
+  --red-bg: #fdeaea;
+  --gray: #6b7280;
+  --gray-bg: #f4f4f4;
+  --border: #dde3ec;
+  --bg: #f0f4f8;
+  --card: #ffffff;
+  --text: #111827;
+  --text2: #4b5563;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 4px rgba(0,0,0,0.07);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
+
+/* ── HEADER ── */
+.hdr {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  background: var(--blue); color: #fff;
+  padding: env(safe-area-inset-top, 0) 0 0;
+}
+.hdr-inner { display: flex; align-items: center; gap: 10px; padding: 12px 16px 10px; }
+.hdr-icon { font-size: 22px; }
+.hdr-title { flex: 1; }
+.hdr-title h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.2px; }
+.hdr-title p { font-size: 11px; opacity: 0.75; margin-top: 1px; }
+.hdr-link {
+  background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+  color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 12px;
+  text-decoration: none; white-space: nowrap;
+}
+
+/* ── TAB NAV ── */
+.tab-nav {
+  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 62px); left: 0; right: 0; z-index: 199;
+  background: #fff; border-bottom: 1px solid var(--border);
+  display: flex; overflow-x: auto; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.tab-nav::-webkit-scrollbar { display: none; }
+.tab-btn {
+  flex-shrink: 0; padding: 10px 14px; font-size: 12px; font-weight: 500;
+  color: var(--gray); border: none; background: transparent; cursor: pointer;
+  border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.2s;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.tab-btn .tab-icon { font-size: 16px; }
+.tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+/* ── MAIN ── */
+.main {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 62px + 44px + 12px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 30px);
+  min-height: 100vh;
+}
+.section { display: none; padding: 0 12px; }
+.section.active { display: block; }
+
+.sec-header { padding: 4px 0 12px; }
+.sec-header h2 { font-size: 20px; font-weight: 700; color: var(--blue); }
+.sec-header p { font-size: 13px; color: var(--text2); margin-top: 3px; line-height: 1.4; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px; margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.card-title {
+  font-size: 13px; font-weight: 600; color: var(--blue);
+  display: flex; align-items: center; gap: 7px; margin-bottom: 12px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.card-title .ci { font-size: 17px; }
+
+/* ── TIP BOX ── */
+.tip {
+  background: var(--blue-light); border-left: 3px solid var(--blue);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 9px 11px; margin-bottom: 12px;
+}
+.tip p { font-size: 12px; color: var(--blue); line-height: 1.5; }
+.tip strong { font-weight: 600; display: block; margin-bottom: 2px; }
+.tip.warn { background: var(--amber-bg); border-left-color: var(--amber); }
+.tip.warn p { color: var(--amber); }
+
+/* ── FIELDS ── */
+.field { margin-bottom: 11px; }
+.field:last-child { margin-bottom: 0; }
+.field label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+.field input, .field select, .field textarea {
+  width: 100%; padding: 9px 11px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 14px; font-family: inherit;
+  background: #fafafa; color: var(--text); appearance: none;
+  -webkit-appearance: none; transition: border-color 0.2s;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: none; border-color: var(--blue-mid); background: #fff;
+}
+.field-hint { font-size: 11px; color: var(--gray); margin-top: 4px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+/* ── CHIPS (multi-select) ── */
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 8px 13px; border-radius: 20px; border: 1px solid var(--border);
+  background: #fafafa; font-size: 12.5px; color: var(--text2); cursor: pointer;
+  user-select: none; font-family: inherit; transition: all 0.15s;
+}
+.chip.sel { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+/* ── BUTTONS ── */
+.btn-bar { display: flex; gap: 8px; margin-top: 16px; padding-bottom: 8px; }
+.btn-prev, .btn-next {
+  flex: 1; padding: 13px; border-radius: var(--radius); font-size: 15px;
+  font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: opacity 0.2s;
+}
+.btn-prev { background: #fff; color: var(--blue); border: 1px solid var(--border); }
+.btn-next { background: var(--blue); color: #fff; }
+.btn-next:active, .btn-prev:active { opacity: 0.8; }
+.btn-full {
+  width: 100%; padding: 14px; border-radius: var(--radius); font-size: 15px;
+  font-weight: 600; cursor: pointer; border: none; font-family: inherit;
+  margin-bottom: 10px; transition: opacity 0.2s;
+}
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-secondary { background: #fff; color: var(--blue); border: 1px solid var(--border); }
+.btn-full:active { opacity: 0.8; }
+.btn-full:disabled { opacity: 0.5; cursor: default; }
+
+/* ── RESULT ── */
+.sum-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+.sum-row:last-child { border-bottom: none; }
+.sum-key { color: var(--text2); }
+.sum-val { font-weight: 600; text-align: right; }
+
+.map-wrap { height: 320px; border-radius: var(--radius); overflow: hidden; margin-bottom: 12px; border: 1px solid var(--border); }
+#map { height: 100%; width: 100%; background: #dde3ec; }
+.num-marker div {
+  width: 26px; height: 26px; border-radius: 50%; color: #fff; font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  border: 2px solid #fff;
+}
+
+.day-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px; margin-bottom: 12px; box-shadow: var(--shadow);
+}
+.day-head { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
+.day-badge {
+  width: 30px; height: 30px; border-radius: 50%; background: var(--blue); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0;
+}
+.day-head strong { display: block; font-size: 14px; }
+.day-km { font-size: 11.5px; color: var(--gray); }
+.day-sub { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.4px; margin: 10px 0 6px; }
+
+.spot-item { background: var(--bg); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 6px; }
+.spot-item:last-child { margin-bottom: 0; }
+.spot-item.spot-best { background: var(--green-bg); border: 1px solid #bfe0bf; }
+.spot-item strong { display: block; font-size: 13px; margin-bottom: 2px; }
+.spot-item span { display: inline-block; font-size: 11.5px; color: var(--gray); }
+.spot-item .sight-chip { margin: 4px 4px 0 0; }
+.spot-link { display: inline-block; margin-top: 6px; font-size: 12px; color: var(--blue-mid); text-decoration: none; font-weight: 600; }
+.spot-error { color: var(--red); font-size: 12.5px; }
+.text-muted { color: var(--gray); font-size: 12.5px; }
+
+.sights-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+.sight-chip {
+  display: inline-block; background: var(--blue-light); color: var(--blue);
+  padding: 4px 9px; border-radius: 14px; font-size: 11.5px;
+}
+.sight-chip em { font-style: normal; color: var(--blue-mid); }
+
+.footnote { font-size: 11px; color: var(--gray); line-height: 1.5; padding: 4px 4px 20px; text-align: center; }
+
+/* ── LOADING ── */
+.loading-box { display: none; text-align: center; padding: 40px 10px; }
+.loading-box.show { display: block; }
+.spinner {
+  width: 34px; height: 34px; border: 3px solid var(--border); border-top-color: var(--blue);
+  border-radius: 50%; margin: 0 auto 14px; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-box p { font-size: 13px; color: var(--text2); }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: calc(env(safe-area-inset-bottom,0px) + 20px);
+  left: 50%; transform: translateX(-50%);
+  background: #1f2937; color: #fff; padding: 10px 20px;
+  border-radius: 20px; font-size: 13px; z-index: 999;
+  opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap;
+  max-width: 90vw; overflow: hidden; text-overflow: ellipsis;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-inner">
+    <div class="hdr-icon">🗺️</div>
+    <div class="hdr-title">
+      <h1>Reiseplaner</h1>
+      <p id="hdrSub">Für Wohnmobil- &amp; Camper-Touren</p>
+    </div>
+    <a class="hdr-link" href="freiraummobil_uebergabe.html">📋 Übergabe</a>
+  </div>
+</div>
+
+<!-- TAB NAV -->
+<div class="tab-nav" id="tabNav">
+  <button class="tab-btn active" onclick="goTo(0)"><span class="tab-icon">🚐</span>Fahrzeug</button>
+  <button class="tab-btn" onclick="goTo(1)"><span class="tab-icon">⚙️</span>Präferenzen</button>
+  <button class="tab-btn" onclick="goTo(2)"><span class="tab-icon">🧭</span>Route</button>
+  <button class="tab-btn" onclick="goTo(3)"><span class="tab-icon">📅</span>Reiseplan</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- ── 0: FAHRZEUG ── -->
+  <div class="section active" id="sec0">
+    <div class="sec-header">
+      <h2>Fahrzeugdaten</h2>
+      <p>Einmal eingeben – bleibt auf diesem Gerät gespeichert.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🚐</span>Fahrzeug</div>
+      <div class="field"><label>Name / Kennzeichen</label><input type="text" id="fz-name" placeholder="z.B. Freiraummobil BO FR 1000"></div>
+      <div class="field"><label>Fahrzeugtyp</label>
+        <select id="fz-typ">
+          <option value="">wählen…</option>
+          <option>Kastenwagen</option>
+          <option>Teilintegriert</option>
+          <option>Integriert (Alkoven)</option>
+          <option>Wohnwagen mit Zugfahrzeug</option>
+        </select>
+      </div>
+      <div class="grid3">
+        <div class="field"><label>Länge (m)</label><input type="number" step="0.01" id="fz-laenge" placeholder="5.99"></div>
+        <div class="field"><label>Höhe (m)</label><input type="number" step="0.01" id="fz-hoehe" placeholder="2.85"></div>
+        <div class="field"><label>Breite (m)</label><input type="number" step="0.01" id="fz-breite" placeholder="2.03"></div>
+      </div>
+      <div class="field"><label>Zul. Gesamtgewicht (kg)</label><input type="number" id="fz-gewicht" placeholder="3500"></div>
+      <div class="field-hint">Maße helfen dir, vorgeschlagene Stellplätze selbst auf Eignung zu prüfen (Höhenschranken, Wegbreite) – die App filtert Stellplätze noch nicht automatisch danach.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">⛽</span>Antrieb &amp; Tanks</div>
+      <div class="grid2">
+        <div class="field"><label>Kraftstoff</label>
+          <select id="fz-kraftstoff">
+            <option value="">wählen…</option>
+            <option>Diesel</option>
+            <option>Benzin</option>
+            <option>Autogas (LPG)</option>
+            <option>Elektro</option>
+          </select>
+        </div>
+        <div class="field"><label>Ø Verbrauch (l bzw. kWh /100km)</label><input type="number" step="0.1" id="fz-verbrauch" placeholder="9.5"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Frischwassertank (Liter)</label><input type="number" id="fz-frischwasser" placeholder="100"></div>
+        <div class="field"><label>Abwassertank (Liter)</label><input type="number" id="fz-grauwasser" placeholder="100"></div>
+      </div>
+    </div>
+
+    <button class="btn-full btn-secondary" onclick="resetProfile()">🔄 Fahrzeugdaten zurücksetzen</button>
+    <div class="btn-bar"><button class="btn-next btn-full" onclick="goTo(1)">Weiter: Präferenzen →</button></div>
+  </div>
+
+  <!-- ── 1: PRÄFERENZEN ── -->
+  <div class="section" id="sec1">
+    <div class="sec-header">
+      <h2>Reiseverhalten &amp; Vorlieben</h2>
+      <p>Bestimmt, welche Stellplätze und Spots dir später vorgeschlagen werden.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🅿️</span>Bevorzugte Stellplatz-Art</div>
+      <div class="chip-row" id="chips-stellplatztyp"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🔌</span>Wichtige Ausstattung</div>
+      <div class="chip-row" id="chips-ausstattung"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🏞️</span>Interessen für Sehenswürdigkeiten</div>
+      <div class="chip-row" id="chips-sights"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🛣️</span>Fahrverhalten</div>
+      <div class="grid2">
+        <div class="field"><label>Max. km pro Tag</label><input type="number" id="pref-km" placeholder="250"></div>
+        <div class="field"><label>Max. Fahrzeit pro Tag (Std.)</label><input type="number" step="0.5" id="pref-stunden" placeholder="4"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Akzeptierter Umweg für Spots (km)</label><input type="number" id="pref-umweg" placeholder="15"></div>
+        <div class="field"><label>Spots pro Tag (max.)</label><input type="number" id="pref-spots" placeholder="3"></div>
+      </div>
+    </div>
+
+    <div class="btn-bar">
+      <button class="btn-prev" onclick="goTo(0)">← Zurück</button>
+      <button class="btn-next" onclick="goTo(2)">Weiter: Route →</button>
+    </div>
+  </div>
+
+  <!-- ── 2: ROUTE ── -->
+  <div class="section" id="sec2">
+    <div class="sec-header">
+      <h2>Start, Ziel &amp; Zeitraum</h2>
+      <p>Nur das hier musst du für jede neue Reise eingeben.</p>
+    </div>
+
+    <div class="tip"><p><strong>Hinweis</strong>Der Reiseplaner nutzt kostenlose, öffentliche OpenStreetMap-Dienste (Nominatim, OSRM, Overpass) live im Browser. Für die Berechnung wird eine Internetverbindung benötigt; bei hoher Auslastung dieser Dienste kann es zu Wartezeiten kommen.</p></div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">🧭</span>Strecke</div>
+      <div class="field"><label>Start</label><input type="text" id="start-ort" placeholder="z.B. Köln"></div>
+      <div class="field"><label>Ziel</label><input type="text" id="ziel-ort" placeholder="z.B. Verona, Italien"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci">📅</span>Verfügbarer Zeitraum</div>
+      <div class="grid2">
+        <div class="field"><label>Abfahrt</label><input type="date" id="reise-start"></div>
+        <div class="field"><label>Ankunft spätestens</label><input type="date" id="reise-ende"></div>
+      </div>
+      <div class="field-hint">Die App berechnet daraus die Anzahl Fahrtage und verteilt die Strecke entsprechend deiner Tageskilometer-Präferenz.</div>
+    </div>
+
+    <button class="btn-full btn-primary" id="btnCompute" onclick="computeTrip()">🧭 Reiseplan berechnen</button>
+
+    <div class="btn-bar"><button class="btn-prev" onclick="goTo(1)">← Zurück</button></div>
+  </div>
+
+  <!-- ── 3: REISEPLAN ── -->
+  <div class="section" id="sec3">
+    <div class="sec-header">
+      <h2>Dein Reiseplan</h2>
+      <p>Vorschläge für Übernachtungen und Sehenswürdigkeiten je Etappe.</p>
+    </div>
+
+    <div class="loading-box" id="planLoading">
+      <div class="spinner"></div>
+      <p>Route wird berechnet &amp; Stellplätze/Spots werden gesucht …</p>
+    </div>
+
+    <div id="resultError"></div>
+    <div id="resultEmpty" class="tip"><p><strong>Noch kein Plan</strong>Gib unter „Route“ Start, Ziel und Zeitraum ein und tippe auf „Reiseplan berechnen“.</p></div>
+
+    <div id="resultContent" style="display:none">
+      <div class="tip warn" id="resultWarning" style="display:none"></div>
+      <div class="card">
+        <div class="card-title"><span class="ci">📊</span>Übersicht</div>
+        <div id="resultSummary"></div>
+      </div>
+      <div class="map-wrap"><div id="map"></div></div>
+      <div id="dayList"></div>
+    </div>
+
+    <div class="footnote">Kartendaten &amp; Ortssuche: © OpenStreetMap-Mitwirkende · Routing: OSRM · Stellplatz-/Spot-Daten: Overpass API. Alle Angaben ohne Gewähr – bitte Vorschläge vor Ort prüfen (Höhe, Gewicht, Öffnungszeiten).</div>
+
+    <div class="btn-bar"><button class="btn-prev" onclick="goTo(2)">← Zurück zur Route</button></div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// STATE & PERSISTENCE
+// ══════════════════════════════════════════════════════════════
+const PROFILE_KEY = 'fm_reiseplaner_profil_v1';
+const PREFS_KEY = 'fm_reiseplaner_praeferenzen_v1';
+const TRIP_KEY = 'fm_reiseplaner_letzte_reise_v1';
+
+const CHIP_GROUPS = {
+  stellplatzTyp: { containerId: 'chips-stellplatztyp', options: [
+    { v: 'campingplatz', l: 'Campingplatz (mit Service)' },
+    { v: 'einfacher', l: 'Einfacher Stellplatz' },
+    { v: 'natur', l: 'Natur / Ruhe' },
+    { v: 'stadt', l: 'Stadtnähe' },
+    { v: 'wasser', l: 'Am Wasser (See/Meer)' }
+  ]},
+  ausstattung: { containerId: 'chips-ausstattung', options: [
+    { v: 'strom', l: 'Stromanschluss' },
+    { v: 'wasser', l: 'Frischwasser' },
+    { v: 'dusche', l: 'Dusche / Sanitär' },
+    { v: 'wlan', l: 'WLAN' },
+    { v: 'hunde', l: 'Hundefreundlich' },
+    { v: 'guenstig', l: 'Kostenlos / günstig' }
+  ]},
+  sights: { containerId: 'chips-sights', options: [
+    { v: 'natur', l: 'Natur & Landschaft' },
+    { v: 'aussicht', l: 'Aussichtspunkte' },
+    { v: 'kultur', l: 'Kultur & Geschichte' },
+    { v: 'strand', l: 'Strände & Seen' },
+    { v: 'staedte', l: 'Städte & Attraktionen' },
+    { v: 'aktivitaet', l: 'Aktivität & Freizeit' }
+  ]}
+};
+
+let prefs = {
+  stellplatzTyp: [], ausstattung: [], sights: [],
+  tagesKmMax: 250, fahrzeitMax: 4, umwegKm: 15, spotsProTag: 3
+};
+
+function v(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+function setV(id, val) { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; }
+
+// ── Fahrzeugprofil ──
+const PROFILE_FIELDS = ['fz-name','fz-typ','fz-laenge','fz-hoehe','fz-breite','fz-gewicht','fz-kraftstoff','fz-verbrauch','fz-frischwasser','fz-grauwasser'];
+
+function saveProfile() {
+  const obj = {};
+  PROFILE_FIELDS.forEach(id => obj[id] = v(id));
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(obj));
+  const sub = document.getElementById('hdrSub');
+  sub.textContent = obj['fz-name'] ? obj['fz-name'] : 'Für Wohnmobil- & Camper-Touren';
+}
+function loadProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    if (!raw) return;
+    const obj = JSON.parse(raw);
+    PROFILE_FIELDS.forEach(id => setV(id, obj[id]));
+    saveProfile();
+  } catch (e) { /* ignore corrupt storage */ }
+}
+function resetProfile() {
+  PROFILE_FIELDS.forEach(id => setV(id, ''));
+  localStorage.removeItem(PROFILE_KEY);
+  saveProfile();
+  showToast('Fahrzeugdaten zurückgesetzt');
+}
+
+// ── Präferenzen ──
+function renderChips() {
+  Object.keys(CHIP_GROUPS).forEach(groupKey => {
+    const group = CHIP_GROUPS[groupKey];
+    const container = document.getElementById(group.containerId);
+    container.innerHTML = group.options.map(o =>
+      `<button type="button" class="chip" data-group="${groupKey}" data-val="${o.v}" onclick="toggleChip('${groupKey}','${o.v}', this)">${o.l}</button>`
+    ).join('');
+  });
+}
+function toggleChip(groupKey, val, btn) {
+  const arr = prefs[groupKey];
+  const i = arr.indexOf(val);
+  if (i === -1) arr.push(val); else arr.splice(i, 1);
+  btn.classList.toggle('sel', arr.includes(val));
+  savePrefs();
+}
+function syncChipUI() {
+  document.querySelectorAll('.chip').forEach(btn => {
+    const g = btn.dataset.group, val = btn.dataset.val;
+    btn.classList.toggle('sel', prefs[g].includes(val));
+  });
+}
+function savePrefs() {
+  prefs.tagesKmMax = parseFloat(v('pref-km')) || 250;
+  prefs.fahrzeitMax = parseFloat(v('pref-stunden')) || 4;
+  prefs.umwegKm = parseFloat(v('pref-umweg')) || 15;
+  prefs.spotsProTag = parseInt(v('pref-spots'), 10) || 3;
+  localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+}
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    if (raw) prefs = Object.assign(prefs, JSON.parse(raw));
+  } catch (e) { /* ignore corrupt storage */ }
+  setV('pref-km', prefs.tagesKmMax);
+  setV('pref-stunden', prefs.fahrzeitMax);
+  setV('pref-umweg', prefs.umwegKm);
+  setV('pref-spots', prefs.spotsProTag);
+  syncChipUI();
+}
+
+// ── Letzte Reiseanfrage ──
+function saveTripInputs() {
+  localStorage.setItem(TRIP_KEY, JSON.stringify({
+    start: v('start-ort'), ziel: v('ziel-ort'),
+    von: v('reise-start'), bis: v('reise-ende')
+  }));
+}
+function loadTripInputs() {
+  try {
+    const raw = localStorage.getItem(TRIP_KEY);
+    if (!raw) return;
+    const obj = JSON.parse(raw);
+    setV('start-ort', obj.start); setV('ziel-ort', obj.ziel);
+    setV('reise-start', obj.von); setV('reise-ende', obj.bis);
+  } catch (e) { /* ignore corrupt storage */ }
+}
+
+// ══════════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════════
+function goTo(idx) {
+  document.querySelectorAll('.section').forEach((s, i) => s.classList.toggle('active', i === idx));
+  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+  window.scrollTo(0, 0);
+  const tabs = document.querySelectorAll('.tab-btn');
+  if (tabs[idx]) tabs[idx].scrollIntoView({ inline: 'center', behavior: 'smooth' });
+  if (idx === 3 && map) setTimeout(() => map.invalidateSize(), 150);
+}
+
+function showToast(msg, dur = 3500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), dur);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function shortName(displayName) { return (displayName || '').split(',').slice(0, 2).join(', '); }
+
+// ══════════════════════════════════════════════════════════════
+// GEO HELPERS
+// ══════════════════════════════════════════════════════════════
+function haversineKm(a, b) {
+  const R = 6371;
+  const dLat = (b[0] - a[0]) * Math.PI / 180;
+  const dLon = (b[1] - a[1]) * Math.PI / 180;
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * Math.PI / 180) * Math.cos(b[0] * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+async function geocode(query) {
+  const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=0&q=' + encodeURIComponent(query);
+  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  if (!res.ok) throw new Error('Geokodierung fehlgeschlagen (HTTP ' + res.status + ')');
+  const data = await res.json();
+  if (!data.length) return null;
+  return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: data[0].display_name };
+}
+
+async function fetchRoute(a, b) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=full&geometries=geojson`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Routenberechnung fehlgeschlagen (HTTP ' + res.status + ')');
+  const data = await res.json();
+  if (data.code !== 'Ok' || !data.routes || !data.routes.length) throw new Error('Keine Route zwischen Start und Ziel gefunden');
+  const r = data.routes[0];
+  const coords = r.geometry.coordinates.map(c => [c[1], c[0]]);
+  const cumKm = [0];
+  for (let i = 1; i < coords.length; i++) cumKm.push(cumKm[i - 1] + haversineKm(coords[i - 1], coords[i]));
+  return { coords, cumKm, distanceKm: r.distance / 1000, durationH: r.duration / 3600 };
+}
+
+function indexAtDistance(cumKm, targetKm) {
+  for (let i = 0; i < cumKm.length; i++) if (cumKm[i] >= targetKm) return i;
+  return cumKm.length - 1;
+}
+
+function buildDayPlan(route, totalDays, tagesKmMax) {
+  const totalKm = route.distanceKm;
+  const legs = Math.max(totalDays, 1);
+  const kmPerLeg = totalKm / legs;
+  const idealDays = Math.ceil(totalKm / Math.max(tagesKmMax, 1));
+  const warning = idealDays > totalDays
+    ? `Für ${Math.round(totalKm)} km bei max. ${tagesKmMax} km/Tag wären ca. ${idealDays} Fahrtage sinnvoll. Bei ${totalDays} verfügbaren Tagen werden die Etappen entsprechend länger (Ø ${Math.round(kmPerLeg)} km/Tag).`
+    : null;
+
+  const days = [];
+  let prevIdx = 0;
+  for (let i = 1; i <= legs; i++) {
+    const targetKm = i === legs ? totalKm : i * kmPerLeg;
+    const toIdx = i === legs ? route.coords.length - 1 : Math.max(indexAtDistance(route.cumKm, targetKm), prevIdx + 1);
+    const slice = route.coords.slice(prevIdx, toIdx + 1);
+    days.push({
+      index: i,
+      from: route.coords[prevIdx],
+      to: route.coords[toIdx],
+      distanceKm: route.cumKm[toIdx] - route.cumKm[prevIdx],
+      slice,
+      isLast: i === legs
+    });
+    prevIdx = toIdx;
+  }
+  return { totalKm, totalDays, warning, days };
+}
+
+// ── Stellplätze (Overpass) ──
+async function findCampsites(coord, radiusKm) {
+  const r = Math.round(radiusKm * 1000);
+  const q = `[out:json][timeout:25];(node["tourism"="camp_site"](around:${r},${coord[0]},${coord[1]});node["tourism"="caravan_site"](around:${r},${coord[0]},${coord[1]});way["tourism"="camp_site"](around:${r},${coord[0]},${coord[1]});way["tourism"="caravan_site"](around:${r},${coord[0]},${coord[1]}););out center tags 40;`;
+  const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: q });
+  if (!res.ok) throw new Error('Stellplatzsuche fehlgeschlagen (HTTP ' + res.status + ')');
+  const data = await res.json();
+  return data.elements.map(el => {
+    const lat = el.lat != null ? el.lat : (el.center && el.center.lat);
+    const lon = el.lon != null ? el.lon : (el.center && el.center.lon);
+    if (lat == null || lon == null) return null;
+    return { lat, lon, tags: el.tags || {}, distKm: haversineKm(coord, [lat, lon]) };
+  }).filter(Boolean);
+}
+
+function scoreCampsite(site, p) {
+  const t = site.tags;
+  let score = 0;
+  if (p.stellplatzTyp.includes('campingplatz') && t.tourism === 'camp_site') score += 2;
+  if (p.stellplatzTyp.includes('einfacher') && t.tourism === 'caravan_site') score += 2;
+  if (p.ausstattung.includes('strom') && (t.power_supply || t.electricity === 'yes')) score += 1.5;
+  if (p.ausstattung.includes('wasser') && (t.drinking_water === 'yes')) score += 1;
+  if (p.ausstattung.includes('dusche') && t.shower === 'yes') score += 1;
+  if (p.ausstattung.includes('wlan') && t.internet_access && t.internet_access !== 'no') score += 1;
+  if (p.ausstattung.includes('hunde') && t.dog && t.dog !== 'no') score += 0.5;
+  if (p.ausstattung.includes('guenstig') && t.fee === 'no') score += 1;
+  score -= site.distKm * 0.08;
+  return score;
+}
+function campsiteLabel(t) { return t.tourism === 'caravan_site' ? 'Wohnmobil-/Caravan-Stellplatz' : 'Campingplatz'; }
+function campsiteAmenities(t) {
+  const list = [];
+  if (t.power_supply || t.electricity === 'yes') list.push('⚡ Strom');
+  if (t.drinking_water === 'yes') list.push('💧 Frischwasser');
+  if (t.shower === 'yes') list.push('🚿 Dusche');
+  if (t.internet_access && t.internet_access !== 'no') list.push('📶 WLAN');
+  if (t.dog && t.dog !== 'no') list.push('🐾 Hunde ok');
+  if (t.fee === 'no') list.push('🆓 Kostenlos');
+  return list;
+}
+
+// ── Sehenswürdigkeiten (Overpass) ──
+const CATEGORY_TAGS = {
+  natur: [['natural', 'waterfall'], ['natural', 'peak'], ['leisure', 'nature_reserve']],
+  aussicht: [['tourism', 'viewpoint']],
+  kultur: [['historic', 'castle'], ['historic', 'monument'], ['historic', 'ruins'], ['historic', 'memorial'], ['tourism', 'museum'], ['tourism', 'artwork']],
+  strand: [['natural', 'beach']],
+  staedte: [['tourism', 'attraction']],
+  aktivitaet: [['leisure', 'water_park'], ['tourism', 'theme_park'], ['leisure', 'park']]
+};
+function categoryLabel(tags) {
+  if (tags.natural === 'waterfall') return 'Wasserfall';
+  if (tags.natural === 'peak') return 'Gipfel';
+  if (tags.natural === 'beach') return 'Strand';
+  if (tags.leisure === 'nature_reserve') return 'Naturschutzgebiet';
+  if (tags.tourism === 'viewpoint') return 'Aussichtspunkt';
+  if (tags.historic) return 'Historisch';
+  if (tags.tourism === 'museum') return 'Museum';
+  if (tags.tourism === 'artwork') return 'Kunstwerk';
+  if (tags.leisure === 'water_park') return 'Wasserpark';
+  if (tags.tourism === 'theme_park') return 'Freizeitpark';
+  if (tags.leisure === 'park') return 'Park';
+  return 'Sehenswürdigkeit';
+}
+function bboxFromSlice(slice, bufferKm) {
+  let south = 90, north = -90, west = 180, east = -180;
+  slice.forEach(([lat, lon]) => {
+    south = Math.min(south, lat); north = Math.max(north, lat);
+    west = Math.min(west, lon); east = Math.max(east, lon);
+  });
+  const dLat = bufferKm / 111;
+  const midLat = (south + north) / 2;
+  const dLon = bufferKm / (111 * Math.max(Math.cos(midLat * Math.PI / 180), 0.15));
+  return [south - dLat, west - dLon, north + dLat, east + dLon];
+}
+async function findSights(slice, categories, bufferKm) {
+  if (!categories.length) return [];
+  const [s, w, n, e] = bboxFromSlice(slice, bufferKm);
+  const bboxStr = `${s},${w},${n},${e}`;
+  const filters = [];
+  categories.forEach(cat => {
+    (CATEGORY_TAGS[cat] || []).forEach(([k, val]) => {
+      filters.push(`node["${k}"="${val}"](${bboxStr});`);
+      filters.push(`way["${k}"="${val}"](${bboxStr});`);
+    });
+  });
+  if (!filters.length) return [];
+  const q = `[out:json][timeout:25];(${filters.join('')});out center tags 80;`;
+  const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: q });
+  if (!res.ok) throw new Error('Spot-Suche fehlgeschlagen (HTTP ' + res.status + ')');
+  const data = await res.json();
+  const step = Math.max(Math.floor(slice.length / 40), 1);
+  const sample = slice.filter((_, i) => i % step === 0);
+  const seen = new Set();
+  const items = [];
+  data.elements.forEach(el => {
+    const lat = el.lat != null ? el.lat : (el.center && el.center.lat);
+    const lon = el.lon != null ? el.lon : (el.center && el.center.lon);
+    const name = el.tags && (el.tags.name || el.tags['name:de']);
+    if (lat == null || lon == null || !name) return;
+    const key = name + '|' + lat.toFixed(3) + '|' + lon.toFixed(3);
+    if (seen.has(key)) return;
+    seen.add(key);
+    let minDist = Infinity;
+    sample.forEach(p => { const d = haversineKm(p, [lat, lon]); if (d < minDist) minDist = d; });
+    if (minDist > bufferKm) return;
+    items.push({ name, lat, lon, category: categoryLabel(el.tags), distKm: minDist });
+  });
+  items.sort((a, b) => a.distKm - b.distKm);
+  return items;
+}
+
+// ══════════════════════════════════════════════════════════════
+// TRIP COMPUTATION
+// ══════════════════════════════════════════════════════════════
+let map = null, mapLayer = null;
+
+function setPlanLoading(on) {
+  document.getElementById('planLoading').classList.toggle('show', on);
+  document.getElementById('btnCompute').disabled = on;
+  if (on) {
+    document.getElementById('resultEmpty').style.display = 'none';
+    document.getElementById('resultContent').style.display = 'none';
+    document.getElementById('resultError').innerHTML = '';
+  }
+}
+function showResultError(msg) {
+  document.getElementById('resultError').innerHTML = `<div class="tip warn"><p><strong>⚠️ Fehler</strong>${escapeHtml(msg)}</p></div>`;
+  document.getElementById('resultEmpty').style.display = 'none';
+}
+
+async function computeTrip() {
+  const startQ = v('start-ort'), zielQ = v('ziel-ort');
+  const dStart = v('reise-start'), dEnde = v('reise-ende');
+  if (!startQ || !zielQ) { showToast('Bitte Start und Ziel angeben'); return; }
+  if (!dStart || !dEnde) { showToast('Bitte Zeitraum angeben'); return; }
+  const totalDays = Math.round((new Date(dEnde) - new Date(dStart)) / 86400000) + 1;
+  if (totalDays < 1) { showToast('Ankunftsdatum muss nach dem Abfahrtsdatum liegen'); return; }
+
+  saveTripInputs();
+  savePrefs();
+  goTo(3);
+  setPlanLoading(true);
+
+  try {
+    const startPoint = await geocode(startQ);
+    await sleep(1100);
+    const zielPoint = await geocode(zielQ);
+    if (!startPoint) throw new Error('Startort „' + startQ + '“ wurde nicht gefunden.');
+    if (!zielPoint) throw new Error('Zielort „' + zielQ + '“ wurde nicht gefunden.');
+
+    const route = await fetchRoute(startPoint, zielPoint);
+    const plan = buildDayPlan(route, totalDays, prefs.tagesKmMax);
+
+    for (const day of plan.days) {
+      await sleep(400);
+      try {
+        if (!day.isLast) {
+          const sites = await findCampsites(day.to, Math.max(prefs.umwegKm, 10));
+          sites.forEach(s => s.score = scoreCampsite(s, prefs));
+          sites.sort((a, b) => b.score - a.score);
+          day.campsites = sites.slice(0, 4);
+        } else {
+          day.campsites = [];
+        }
+      } catch (e) { day.campsiteError = e.message; }
+
+      await sleep(400);
+      try {
+        day.sights = (await findSights(day.slice, prefs.sights, prefs.umwegKm)).slice(0, prefs.spotsProTag);
+      } catch (e) { day.sightError = e.message; }
+    }
+
+    renderResult(startPoint, zielPoint, route, plan);
+  } catch (err) {
+    console.error(err);
+    showResultError(err.message || String(err));
+  } finally {
+    setPlanLoading(false);
+  }
+}
+
+function ensureMap() {
+  if (map) return map;
+  map = L.map('map');
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-Mitwirkende'
+  }).addTo(map);
+  return map;
+}
+function numIcon(label, color) {
+  return L.divIcon({
+    className: 'num-marker',
+    html: `<div style="background:${color}">${label}</div>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13]
+  });
+}
+
+function renderResult(startPoint, zielPoint, route, plan) {
+  document.getElementById('resultEmpty').style.display = 'none';
+  document.getElementById('resultError').innerHTML = '';
+  document.getElementById('resultContent').style.display = 'block';
+
+  document.getElementById('resultSummary').innerHTML = `
+    <div class="sum-row"><span class="sum-key">Von</span><span class="sum-val">${escapeHtml(shortName(startPoint.name))}</span></div>
+    <div class="sum-row"><span class="sum-key">Nach</span><span class="sum-val">${escapeHtml(shortName(zielPoint.name))}</span></div>
+    <div class="sum-row"><span class="sum-key">Gesamtstrecke</span><span class="sum-val">${Math.round(route.distanceKm)} km</span></div>
+    <div class="sum-row"><span class="sum-key">Reine Fahrzeit</span><span class="sum-val">${route.durationH.toFixed(1)} Std.</span></div>
+    <div class="sum-row"><span class="sum-key">Etappen</span><span class="sum-val">${plan.days.length}</span></div>`;
+
+  const warnBox = document.getElementById('resultWarning');
+  if (plan.warning) {
+    warnBox.style.display = 'block';
+    warnBox.innerHTML = `<p><strong>⚠️ Hinweis</strong>${escapeHtml(plan.warning)}</p>`;
+  } else {
+    warnBox.style.display = 'none';
+  }
+
+  const m = ensureMap();
+  if (mapLayer) mapLayer.remove();
+  mapLayer = L.layerGroup().addTo(m);
+  const line = L.polyline(route.coords, { color: '#2d5f8e', weight: 4 }).addTo(mapLayer);
+  L.marker(route.coords[0], { icon: numIcon('S', '#2d6a2d') }).addTo(mapLayer)
+    .bindPopup('Start: ' + escapeHtml(shortName(startPoint.name)));
+
+  plan.days.forEach(day => {
+    const label = day.isLast ? '🏁' : String(day.index);
+    const color = day.isLast ? '#8b1a1a' : '#1a3a5c';
+    const best = day.campsites && day.campsites[0];
+    const popup = day.isLast
+      ? 'Ziel: ' + escapeHtml(shortName(zielPoint.name))
+      : `Tag ${day.index} – Übernachtung${best ? ': ' + escapeHtml(best.tags.name || campsiteLabel(best.tags)) : ' (kein Stellplatz gefunden)'}`;
+    L.marker(day.to, { icon: numIcon(label, color) }).addTo(mapLayer).bindPopup(popup);
+    (day.sights || []).forEach(s => {
+      L.circleMarker([s.lat, s.lon], { radius: 5, color: '#7a4f00', fillColor: '#fdf3dc', fillOpacity: 0.9, weight: 2 })
+        .addTo(mapLayer).bindPopup(`${escapeHtml(s.name)} (${escapeHtml(s.category)})`);
+    });
+  });
+  m.fitBounds(line.getBounds(), { padding: [24, 24] });
+  setTimeout(() => m.invalidateSize(), 150);
+
+  document.getElementById('dayList').innerHTML = plan.days.map(day => dayCardHtml(day, zielPoint)).join('');
+}
+
+function dayCardHtml(day, zielPoint) {
+  const title = day.isLast ? 'Ankunft am Ziel' : 'Übernachtungs-Vorschläge';
+  let stayHtml;
+  if (day.isLast) {
+    stayHtml = `<div class="spot-item spot-best"><strong>🏁 ${escapeHtml(shortName(zielPoint.name))}</strong><span>Ende der Route</span></div>`;
+  } else if (day.campsiteError) {
+    stayHtml = `<div class="spot-item"><span class="spot-error">Stellplatzsuche fehlgeschlagen: ${escapeHtml(day.campsiteError)}</span></div>`;
+  } else if (!day.campsites || !day.campsites.length) {
+    stayHtml = `<div class="spot-item"><span class="spot-error">Kein Stellplatz im Umkreis von ${Math.max(prefs.umwegKm, 10)} km gefunden.</span></div>`;
+  } else {
+    stayHtml = day.campsites.map((s, i) => `
+      <div class="spot-item ${i === 0 ? 'spot-best' : ''}">
+        <strong>${i === 0 ? '⭐ ' : ''}${escapeHtml(s.tags.name || campsiteLabel(s.tags))}</strong>
+        <span>${campsiteLabel(s.tags)} · ${s.distKm.toFixed(1)} km vom Etappenziel</span><br>
+        ${campsiteAmenities(s.tags).map(a => `<span class="sight-chip">${escapeHtml(a)}</span>`).join('')}
+        <a class="spot-link" href="https://www.openstreetmap.org/?mlat=${s.lat}&mlon=${s.lon}#map=16/${s.lat}/${s.lon}" target="_blank" rel="noopener">Auf Karte öffnen ↗</a>
+      </div>`).join('');
+  }
+
+  let sightsHtml;
+  if (day.sightError) {
+    sightsHtml = `<span class="spot-error">Spot-Suche fehlgeschlagen: ${escapeHtml(day.sightError)}</span>`;
+  } else if (!day.sights || !day.sights.length) {
+    sightsHtml = `<span class="text-muted">Keine passenden Spots im gewählten Umkreis gefunden. Tipp: Interessen/Umweg in den Präferenzen anpassen.</span>`;
+  } else {
+    sightsHtml = day.sights.map(s =>
+      `<span class="sight-chip">📍 ${escapeHtml(s.name)} <em>(${escapeHtml(s.category)}, ${s.distKm.toFixed(1)} km)</em></span>`
+    ).join('');
+  }
+
+  return `
+    <div class="day-card">
+      <div class="day-head">
+        <div class="day-badge">${day.isLast ? '🏁' : day.index}</div>
+        <div><strong>Tag ${day.index}</strong><span class="day-km">${Math.round(day.distanceKm)} km Fahrstrecke</span></div>
+      </div>
+      <div class="day-sub">${title}</div>
+      ${stayHtml}
+      <div class="day-sub">Sehenswürdigkeiten auf dieser Etappe</div>
+      <div class="sights-wrap">${sightsHtml}</div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  renderChips();
+  loadProfile();
+  loadPrefs();
+  loadTripInputs();
+
+  document.addEventListener('change', e => {
+    if (PROFILE_FIELDS.includes(e.target.id)) saveProfile();
+    if (['pref-km', 'pref-stunden', 'pref-umweg', 'pref-spots'].includes(e.target.id)) savePrefs();
+    if (['start-ort', 'ziel-ort', 'reise-start', 'reise-ende'].includes(e.target.id)) saveTripInputs();
+  });
+});
+</script>
+</body>
+</html>
