@@ -823,30 +823,57 @@ function splitSliceIntoChunks(slice, targetChunkKm, maxChunks) {
   return chunks;
 }
 
+// Zweite, von Overpass komplett unabhängige Datenquelle: Wikipedias
+// Geosuche (anderer Anbieter, andere Infrastruktur, kein API-Key nötig,
+// sehr zuverlässig). Läuft parallel zur OSM-Suche mit, damit ein Ausfall
+// oder Rate-Limit von Overpass nicht automatisch zu "nichts gefunden" führt.
+// gsradius ist von Wikipedia auf max. 10 km begrenzt.
+async function findWikipediaSights(coord, bufferKm) {
+  const radiusM = Math.min(Math.max(Math.round(bufferKm * 1000), 1000), 10000);
+  const url = `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gsradius=${radiusM}&gscoord=${coord[0]}|${coord[1]}&gslimit=15&format=json&origin=*`;
+  const res = await fetchWithTimeout(url, undefined, 10000);
+  if (!res.ok) throw new Error('Wikipedia-Suche fehlgeschlagen (HTTP ' + res.status + ')');
+  const data = await res.json();
+  const list = (data.query && data.query.geosearch) || [];
+  return list.map(g => ({
+    name: g.title,
+    lat: g.lat,
+    lon: g.lon,
+    category: 'Wikipedia',
+    distKm: typeof g.dist === 'number' ? g.dist / 1000 : haversineKm(coord, [g.lat, g.lon])
+  }));
+}
+
 // Sucht Sehenswürdigkeiten entlang der KOMPLETTEN Etappe, nicht nur am
 // Etappenziel: die Strecke wird in Abschnitte zerlegt und ALLE Abschnitte
 // PARALLEL abgefragt (nicht nacheinander) – sonst würde sich bei mehreren
-// Abschnitten die Wartezeit pro Abschnitt aufsummieren. Ein einzelner
-// fehlgeschlagener Abschnitt wird übersprungen, die übrigen zählen trotzdem.
+// Abschnitten die Wartezeit pro Abschnitt aufsummieren. Pro Abschnitt laufen
+// zwei unabhängige Quellen (OSM/Overpass + Wikipedia) mit; scheitert eine
+// Quelle technisch, zählt trotzdem die andere. Nur wenn WIRKLICH ALLE
+// Anfragen technisch fehlschlagen, wird das als Fehler nach oben gereicht
+// statt es als "nichts gefunden" zu verschleiern.
 async function findSightsAlongRoute(slice, categories, bufferKm, onProgress) {
-  if (!categories.length) return [];
   const chunks = splitSliceIntoChunks(slice, 50, 5);
-  let done = 0;
-  const tasks = chunks.map(chunk =>
-    findSights(chunk, categories, bufferKm)
-      .catch(() => [])
-      .then(items => {
-        done++;
-        if (onProgress) onProgress(done, chunks.length);
-        return items;
-      })
-  );
+  const total = chunks.length * (categories.length ? 2 : 1);
+  let done = 0, failed = 0;
+  const bump = ok => { done++; if (!ok) failed++; if (onProgress) onProgress(done, total); };
+  const tasks = [];
+  chunks.forEach(chunk => {
+    if (categories.length) {
+      tasks.push(findSights(chunk, categories, bufferKm).then(items => { bump(true); return items; }, () => { bump(false); return []; }));
+    }
+    const mid = chunk[Math.floor(chunk.length / 2)];
+    tasks.push(findWikipediaSights(mid, bufferKm).then(items => { bump(true); return items; }, () => { bump(false); return []; }));
+  });
   const results = (await Promise.all(tasks)).flat();
+  if (results.length === 0 && failed === total) {
+    throw new Error('Weder OpenStreetMap noch Wikipedia waren erreichbar');
+  }
   const seen = new Set();
   const merged = [];
   results.sort((a, b) => a.distKm - b.distKm);
   for (const item of results) {
-    const key = item.name + '|' + item.lat.toFixed(3) + '|' + item.lon.toFixed(3);
+    const key = item.name.trim().toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
     merged.push(item);
@@ -1095,7 +1122,7 @@ function dayCardHtml(day, zielPoint) {
   if (day.sightError) {
     sightsHtml = `<span class="spot-error">Spot-Suche fehlgeschlagen: ${escapeHtml(day.sightError)}</span>`;
   } else if (!day.sights || !day.sights.length) {
-    sightsHtml = `<span class="text-muted">Auch im erweiterten Umkreis von ${day.sightRadiusKm} km wurden keine Sehenswürdigkeiten gefunden.</span>`;
+    sightsHtml = `<span class="text-muted">Auch im erweiterten Umkreis von ${day.sightRadiusKm} km wurden keine Sehenswürdigkeiten gefunden (OpenStreetMap &amp; Wikipedia durchsucht).</span>`;
   } else {
     const hint = day.sightExpanded
       ? `<div class="field-hint">ℹ️ ${day.sightAllCategories ? 'Nichts zu deinen gewählten Interessen gefunden – zeige allgemeine Sehenswürdigkeiten' : 'Umkreis erweitert'} auf ${day.sightRadiusKm} km.</div>`
