@@ -647,6 +647,27 @@ function scoreCampsite(site, p) {
   score -= site.distKm * 0.08;
   return score;
 }
+// Sucht Stellplätze mit stufenweise wachsendem Radius, damit (fast) immer
+// mindestens ein Ergebnis erscheint, auch wenn dafür Präferenzen nicht mehr
+// zu 100% passen.
+function radiusSteps(baseKm) {
+  const raw = [baseKm, baseKm * 3, baseKm * 8, baseKm * 20];
+  const capped = raw.map(v => Math.min(Math.round(v), 300));
+  return Array.from(new Set(capped));
+}
+async function findBestCampsites(coord, p) {
+  const steps = radiusSteps(Math.max(p.umwegKm, 15));
+  for (let i = 0; i < steps.length; i++) {
+    const sites = await findCampsites(coord, steps[i]);
+    if (sites.length) {
+      sites.forEach(s => s.score = scoreCampsite(s, p));
+      sites.sort((a, b) => b.score - a.score);
+      return { list: sites.slice(0, 4), radiusKm: steps[i], expanded: i > 0 };
+    }
+    if (i < steps.length - 1) await sleep(400);
+  }
+  return { list: [], radiusKm: steps[steps.length - 1], expanded: true };
+}
 function campsiteLabel(t) { return t.tourism === 'caravan_site' ? 'Wohnmobil-/Caravan-Stellplatz' : 'Campingplatz'; }
 function campsiteAmenities(t) {
   const list = [];
@@ -730,6 +751,32 @@ async function findSights(slice, categories, bufferKm) {
   return items;
 }
 
+// Sucht Sehenswürdigkeiten mit wachsendem Radius und weicht bei Bedarf auf
+// alle Kategorien aus, damit pro Etappe (fast) immer etwas vorgeschlagen wird.
+async function findBestSights(slice, p) {
+  const steps = radiusSteps(Math.max(p.umwegKm, 15));
+  const preferredCats = p.sights.length ? p.sights : Object.keys(CATEGORY_TAGS);
+
+  for (let i = 0; i < steps.length; i++) {
+    const items = await findSights(slice, preferredCats, steps[i]);
+    if (items.length) {
+      return { list: items.slice(0, p.spotsProTag), radiusKm: steps[i], expanded: i > 0 || !p.sights.length };
+    }
+    if (i < steps.length - 1) await sleep(400);
+  }
+
+  // Letzter Versuch: alle Kategorien im größten Radius, falls die
+  // gewählten Interessen entlang dieser Etappe gar nichts hergeben.
+  if (p.sights.length) {
+    const maxR = steps[steps.length - 1];
+    await sleep(400);
+    const items = await findSights(slice, Object.keys(CATEGORY_TAGS), maxR);
+    if (items.length) return { list: items.slice(0, p.spotsProTag), radiusKm: maxR, expanded: true, allCategories: true };
+  }
+
+  return { list: [], radiusKm: steps[steps.length - 1], expanded: true };
+}
+
 // ══════════════════════════════════════════════════════════════
 // TRIP COMPUTATION
 // ══════════════════════════════════════════════════════════════
@@ -776,10 +823,10 @@ async function computeTrip() {
       await sleep(400);
       try {
         if (!day.isLast) {
-          const sites = await findCampsites(day.to, Math.max(prefs.umwegKm, 10));
-          sites.forEach(s => s.score = scoreCampsite(s, prefs));
-          sites.sort((a, b) => b.score - a.score);
-          day.campsites = sites.slice(0, 4);
+          const result = await findBestCampsites(day.to, prefs);
+          day.campsites = result.list;
+          day.campsiteRadiusKm = result.radiusKm;
+          day.campsiteExpanded = result.expanded;
         } else {
           day.campsites = [];
         }
@@ -787,7 +834,11 @@ async function computeTrip() {
 
       await sleep(400);
       try {
-        day.sights = (await findSights(day.slice, prefs.sights, prefs.umwegKm)).slice(0, prefs.spotsProTag);
+        const result = await findBestSights(day.slice, prefs);
+        day.sights = result.list;
+        day.sightRadiusKm = result.radiusKm;
+        day.sightExpanded = result.expanded;
+        day.sightAllCategories = result.allCategories;
       } catch (e) { day.sightError = e.message; }
     }
 
@@ -872,9 +923,12 @@ function dayCardHtml(day, zielPoint) {
   } else if (day.campsiteError) {
     stayHtml = `<div class="spot-item"><span class="spot-error">Stellplatzsuche fehlgeschlagen: ${escapeHtml(day.campsiteError)}</span></div>`;
   } else if (!day.campsites || !day.campsites.length) {
-    stayHtml = `<div class="spot-item"><span class="spot-error">Kein Stellplatz im Umkreis von ${Math.max(prefs.umwegKm, 10)} km gefunden.</span></div>`;
+    stayHtml = `<div class="spot-item"><span class="spot-error">Auch im erweiterten Umkreis von ${day.campsiteRadiusKm} km wurde kein Stellplatz gefunden (OpenStreetMap hat hier offenbar keine Daten). Bitte manuell auf der Karte prüfen.</span></div>`;
   } else {
-    stayHtml = day.campsites.map((s, i) => `
+    const hint = day.campsiteExpanded
+      ? `<div class="field-hint">ℹ️ Im bevorzugten Umkreis nichts gefunden – Suche auf ${day.campsiteRadiusKm} km erweitert, Vorschläge erfüllen ggf. nicht alle Präferenzen.</div>`
+      : '';
+    stayHtml = hint + day.campsites.map((s, i) => `
       <div class="spot-item ${i === 0 ? 'spot-best' : ''}">
         <strong>${i === 0 ? '⭐ ' : ''}${escapeHtml(s.tags.name || campsiteLabel(s.tags))}</strong>
         <span>${campsiteLabel(s.tags)} · ${s.distKm.toFixed(1)} km vom Etappenziel</span><br>
@@ -887,9 +941,12 @@ function dayCardHtml(day, zielPoint) {
   if (day.sightError) {
     sightsHtml = `<span class="spot-error">Spot-Suche fehlgeschlagen: ${escapeHtml(day.sightError)}</span>`;
   } else if (!day.sights || !day.sights.length) {
-    sightsHtml = `<span class="text-muted">Keine passenden Spots im gewählten Umkreis gefunden. Tipp: Interessen/Umweg in den Präferenzen anpassen.</span>`;
+    sightsHtml = `<span class="text-muted">Auch im erweiterten Umkreis von ${day.sightRadiusKm} km wurden keine Sehenswürdigkeiten gefunden.</span>`;
   } else {
-    sightsHtml = day.sights.map(s =>
+    const hint = day.sightExpanded
+      ? `<div class="field-hint">ℹ️ ${day.sightAllCategories ? 'Nichts zu deinen gewählten Interessen gefunden – zeige allgemeine Sehenswürdigkeiten' : 'Umkreis erweitert'} auf ${day.sightRadiusKm} km.</div>`
+      : '';
+    sightsHtml = hint + day.sights.map(s =>
       `<span class="sight-chip">📍 ${escapeHtml(s.name)} <em>(${escapeHtml(s.category)}, ${s.distKm.toFixed(1)} km)</em></span>`
     ).join('');
   }
