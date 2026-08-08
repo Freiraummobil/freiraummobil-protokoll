@@ -916,9 +916,9 @@ async function findWikipediaSights(coord, bufferKm) {
 // Proxy noch nicht eingerichtet (Platzhalter-URL), liefert diese Quelle
 // einfach nichts, statt einen Fehler zu werfen – die App funktioniert dann
 // unverändert mit OSM + Wikipedia weiter.
-const OPENTRIPMAP_PROXY_URL = 'https://REPLACE-WITH-YOUR-WORKER.workers.dev/sights';
+const OPENTRIPMAP_PROXY_URL = 'https://reiseplaner.frank-48f.workers.dev/sights';
 async function findOpenTripMapSights(coord, bufferKm, categories) {
-  if (!OPENTRIPMAP_PROXY_URL || OPENTRIPMAP_PROXY_URL.includes('REPLACE-WITH-YOUR-WORKER')) return [];
+  if (!OPENTRIPMAP_PROXY_URL) return [];
   const params = new URLSearchParams({
     lat: coord[0], lon: coord[1], radius: bufferKm, limit: 6, categories: categories.join(',')
   });

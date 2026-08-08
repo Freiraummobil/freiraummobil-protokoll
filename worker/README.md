@@ -40,9 +40,10 @@ OpenTripMap direkt.
    - Manuell: `npx wrangler deploy` im Ordner `worker/`
 
 Nach dem Deploy zeigt Cloudflare die Worker-URL an, z.B.
-`https://reiseplaner-sights-proxy.<dein-subdomain>.workers.dev`.
-Diese URL muss noch in `reiseplaner.html` bei der Konstante
-`OPENTRIPMAP_PROXY_URL` eingetragen werden.
+`https://reiseplaner.<dein-subdomain>.workers.dev`.
+Diese URL ist in `reiseplaner.html` bei der Konstante
+`OPENTRIPMAP_PROXY_URL` eingetragen (aktuell:
+`https://reiseplaner.frank-48f.workers.dev/sights`).
 
 ## Lokal testen
 
