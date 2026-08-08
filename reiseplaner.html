@@ -909,17 +909,47 @@ async function findWikipediaSights(coord, bufferKm) {
     });
 }
 
+// Dritte, ebenfalls unabhängige Datenquelle: OpenTripMap – speziell für
+// Sehenswürdigkeiten gebaut (Kategorien, Kurzbeschreibungen, Wikipedia-Links).
+// Läuft über einen eigenen Cloudflare-Worker-Proxy (siehe worker/), der den
+// API-Key verbirgt; der Reiseplaner ruft NIE direkt OpenTripMap auf. Ist der
+// Proxy noch nicht eingerichtet (Platzhalter-URL), liefert diese Quelle
+// einfach nichts, statt einen Fehler zu werfen – die App funktioniert dann
+// unverändert mit OSM + Wikipedia weiter.
+const OPENTRIPMAP_PROXY_URL = 'https://REPLACE-WITH-YOUR-WORKER.workers.dev/sights';
+async function findOpenTripMapSights(coord, bufferKm, categories) {
+  if (!OPENTRIPMAP_PROXY_URL || OPENTRIPMAP_PROXY_URL.includes('REPLACE-WITH-YOUR-WORKER')) return [];
+  const params = new URLSearchParams({
+    lat: coord[0], lon: coord[1], radius: bufferKm, limit: 6, categories: categories.join(',')
+  });
+  const res = await fetchWithTimeout(`${OPENTRIPMAP_PROXY_URL}?${params}`, undefined, 10000);
+  if (!res.ok) throw new Error('OpenTripMap-Proxy fehlgeschlagen (HTTP ' + res.status + ')');
+  const data = await res.json();
+  return (data.results || [])
+    .filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lon) && r.name)
+    .map(r => ({
+      name: r.name,
+      lat: r.lat,
+      lon: r.lon,
+      category: r.category || 'Sehenswürdigkeit',
+      distKm: typeof r.distKm === 'number' ? r.distKm : haversineKm(coord, [r.lat, r.lon]),
+      description: r.description || null,
+      link: r.link || null
+    }));
+}
+
 // Sucht Sehenswürdigkeiten entlang der KOMPLETTEN Etappe, nicht nur am
 // Etappenziel: die Strecke wird in Abschnitte zerlegt und ALLE Abschnitte
 // PARALLEL abgefragt (nicht nacheinander) – sonst würde sich bei mehreren
 // Abschnitten die Wartezeit pro Abschnitt aufsummieren. Pro Abschnitt laufen
-// zwei unabhängige Quellen (OSM/Overpass + Wikipedia) mit; scheitert eine
-// Quelle technisch, zählt trotzdem die andere. Nur wenn WIRKLICH ALLE
-// Anfragen technisch fehlschlagen, wird das als Fehler nach oben gereicht
-// statt es als "nichts gefunden" zu verschleiern.
+// bis zu drei unabhängige Quellen (OSM/Overpass, Wikipedia, OpenTripMap) mit;
+// scheitert eine Quelle technisch, zählen trotzdem die anderen. Nur wenn
+// WIRKLICH ALLE Anfragen technisch fehlschlagen, wird das als Fehler nach
+// oben gereicht statt es als "nichts gefunden" zu verschleiern.
 async function findSightsAlongRoute(slice, categories, bufferKm, onProgress) {
   const chunks = splitSliceIntoChunks(slice, 50, 5);
-  const total = chunks.length * (categories.length ? 2 : 1);
+  const sourcesPerChunk = (categories.length ? 1 : 0) + 2;
+  const total = chunks.length * sourcesPerChunk;
   let done = 0, failed = 0;
   const bump = ok => { done++; if (!ok) failed++; if (onProgress) onProgress(done, total); };
   const tasks = [];
@@ -929,10 +959,11 @@ async function findSightsAlongRoute(slice, categories, bufferKm, onProgress) {
     }
     const mid = chunk[Math.floor(chunk.length / 2)];
     tasks.push(findWikipediaSights(mid, bufferKm).then(items => { bump(true); return items; }, () => { bump(false); return []; }));
+    tasks.push(findOpenTripMapSights(mid, bufferKm, categories).then(items => { bump(true); return items; }, () => { bump(false); return []; }));
   });
   const results = (await Promise.all(tasks)).flat();
   if (results.length === 0 && failed === total) {
-    throw new Error('Weder OpenStreetMap noch Wikipedia waren erreichbar');
+    throw new Error('Weder OpenStreetMap, Wikipedia noch OpenTripMap waren erreichbar');
   }
   const seen = new Set();
   const merged = [];
