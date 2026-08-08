@@ -187,12 +187,18 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .spot-error { color: var(--red); font-size: 12.5px; }
 .text-muted { color: var(--gray); font-size: 12.5px; }
 
-.sights-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+.sights-wrap { display: flex; flex-direction: column; gap: 6px; }
 .sight-chip {
   display: inline-block; background: var(--blue-light); color: var(--blue);
   padding: 4px 9px; border-radius: 14px; font-size: 11.5px;
 }
 .sight-chip em { font-style: normal; color: var(--blue-mid); }
+
+.sight-item { background: var(--blue-light); border-radius: var(--radius-sm); padding: 10px; }
+.sight-item strong { display: block; font-size: 13px; margin-bottom: 2px; color: var(--blue); }
+.sight-item .sight-meta { font-size: 11.5px; color: var(--blue-mid); }
+.sight-item .sight-desc { font-size: 12px; color: var(--text2); line-height: 1.4; margin-top: 5px; }
+.sight-item .spot-link { color: var(--blue); }
 
 .footnote { font-size: 11px; color: var(--gray); line-height: 1.5; padding: 4px 4px 20px; text-align: center; }
 
@@ -830,18 +836,25 @@ function splitSliceIntoChunks(slice, targetChunkKm, maxChunks) {
 // gsradius ist von Wikipedia auf max. 10 km begrenzt.
 async function findWikipediaSights(coord, bufferKm) {
   const radiusM = Math.min(Math.max(Math.round(bufferKm * 1000), 1000), 10000);
-  const url = `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gsradius=${radiusM}&gscoord=${coord[0]}|${coord[1]}&gslimit=15&format=json&origin=*`;
+  const url = `https://en.wikipedia.org/w/api.php?action=query&generator=geosearch&ggscoord=${coord[0]}|${coord[1]}&ggsradius=${radiusM}&ggslimit=15&prop=extracts|coordinates|info&exintro=1&explaintext=1&exsentences=2&inprop=url&format=json&origin=*`;
   const res = await fetchWithTimeout(url, undefined, 10000);
   if (!res.ok) throw new Error('Wikipedia-Suche fehlgeschlagen (HTTP ' + res.status + ')');
   const data = await res.json();
-  const list = (data.query && data.query.geosearch) || [];
-  return list.map(g => ({
-    name: g.title,
-    lat: g.lat,
-    lon: g.lon,
-    category: 'Wikipedia',
-    distKm: typeof g.dist === 'number' ? g.dist / 1000 : haversineKm(coord, [g.lat, g.lon])
-  }));
+  const pages = (data.query && data.query.pages) || {};
+  return Object.values(pages)
+    .filter(p => p.coordinates && p.coordinates.length)
+    .map(p => {
+      const c = p.coordinates[0];
+      return {
+        name: p.title,
+        lat: c.lat,
+        lon: c.lon,
+        category: 'Wikipedia',
+        distKm: haversineKm(coord, [c.lat, c.lon]),
+        description: (p.extract || '').trim() || null,
+        link: p.fullurl || `https://en.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g, '_'))}`
+      };
+    });
 }
 
 // Sucht Sehenswürdigkeiten entlang der KOMPLETTEN Etappe, nicht nur am
@@ -910,10 +923,31 @@ async function findSights(slice, categories, bufferKm) {
     let minDist = Infinity;
     sample.forEach(p => { const d = haversineKm(p, [lat, lon]); if (d < minDist) minDist = d; });
     if (minDist > bufferKm) return;
-    items.push({ name, lat, lon, category: categoryLabel(el.tags), distKm: minDist });
+    items.push({
+      name, lat, lon, category: categoryLabel(el.tags), distKm: minDist,
+      description: el.tags.description || el.tags['description:de'] || null,
+      link: sightLinkFromTags(el.tags, lat, lon)
+    });
   });
   items.sort((a, b) => a.distKm - b.distKm);
   return items;
+}
+
+// Verlinkt einen OSM-Treffer möglichst sinnvoll: eigene Website, sonst
+// verknüpfter Wikipedia-Artikel (aus dem OSM-Tag "wikipedia", Format
+// "sprache:Titel"), sonst als letzter Fallback die Position auf OSM selbst.
+function sightLinkFromTags(tags, lat, lon) {
+  if (tags.website) return tags.website;
+  if (tags['contact:website']) return tags['contact:website'];
+  if (tags.wikipedia) {
+    const sep = tags.wikipedia.indexOf(':');
+    if (sep > 0) {
+      const lang = tags.wikipedia.slice(0, sep);
+      const title = tags.wikipedia.slice(sep + 1);
+      return `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+    }
+  }
+  return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`;
 }
 
 // Sucht Sehenswürdigkeiten entlang der gesamten Etappe (Korridor-Suche, siehe
@@ -1085,8 +1119,13 @@ function renderResult(startPoint, zielPoint, route, plan) {
       : `Tag ${day.index} – Übernachtung${best ? ': ' + escapeHtml(best.tags.name || campsiteLabel(best.tags)) : ' (kein Stellplatz gefunden)'}`;
     L.marker(day.to, { icon: numIcon(label, color) }).addTo(mapLayer).bindPopup(popup);
     (day.sights || []).forEach(s => {
+      const link = s.link || `https://www.openstreetmap.org/?mlat=${s.lat}&mlon=${s.lon}#map=17/${s.lat}/${s.lon}`;
+      const desc = s.description ? `<br>${escapeHtml(s.description)}` : '';
       L.circleMarker([s.lat, s.lon], { radius: 5, color: '#7a4f00', fillColor: '#fdf3dc', fillOpacity: 0.9, weight: 2 })
-        .addTo(mapLayer).bindPopup(`${escapeHtml(s.name)} (${escapeHtml(s.category)})`);
+        .addTo(mapLayer).bindPopup(
+          `<strong>${escapeHtml(s.name)}</strong> (${escapeHtml(s.category)})${desc}<br>` +
+          `<a href="${escapeHtml(link)}" target="_blank" rel="noopener">Mehr erfahren ↗</a>`
+        );
     });
   });
   m.fitBounds(line.getBounds(), { padding: [24, 24] });
@@ -1127,9 +1166,13 @@ function dayCardHtml(day, zielPoint) {
     const hint = day.sightExpanded
       ? `<div class="field-hint">ℹ️ ${day.sightAllCategories ? 'Nichts zu deinen gewählten Interessen gefunden – zeige allgemeine Sehenswürdigkeiten' : 'Umkreis erweitert'} auf ${day.sightRadiusKm} km.</div>`
       : '';
-    sightsHtml = hint + day.sights.map(s =>
-      `<span class="sight-chip">📍 ${escapeHtml(s.name)} <em>(${escapeHtml(s.category)}, ${s.distKm.toFixed(1)} km)</em></span>`
-    ).join('');
+    sightsHtml = hint + day.sights.map((s, i) => `
+      <div class="sight-item" id="sight-${day.index}-${i}">
+        <strong>📍 ${escapeHtml(s.name)}</strong>
+        <span class="sight-meta">${escapeHtml(s.category)} · ${s.distKm.toFixed(1)} km von der Route</span>
+        ${s.description ? `<div class="sight-desc">${escapeHtml(s.description)}</div>` : ''}
+        <a class="spot-link" href="${escapeHtml(s.link || ('https://www.openstreetmap.org/?mlat=' + s.lat + '&mlon=' + s.lon + '#map=17/' + s.lat + '/' + s.lon))}" target="_blank" rel="noopener">Mehr erfahren ↗</a>
+      </div>`).join('');
   }
 
   return `
