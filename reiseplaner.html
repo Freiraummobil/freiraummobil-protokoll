@@ -667,7 +667,7 @@ const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter'
 ];
 const RETRYABLE_STATUS = [429, 502, 503, 504];
-const OVERPASS_TIMEOUT_MS = 14000;
+const OVERPASS_TIMEOUT_MS = 23000;
 // Beide Server werden PARALLEL angefragt (nicht nacheinander) – die schnellste
 // Antwort gewinnt. So bleibt eine einzelne Anfrage im Normalfall so schnell
 // wie der schnellere der beiden Server, und im Fehlerfall (z.B. hängender
@@ -699,7 +699,7 @@ function bboxFromPoint(coord, radiusKm) {
 async function findCampsites(coord, radiusKm) {
   const [s, w, n, e] = bboxFromPoint(coord, radiusKm);
   const bboxStr = `${s},${w},${n},${e}`;
-  const q = `[out:json][timeout:9];(node["tourism"="camp_site"](${bboxStr});node["tourism"="caravan_site"](${bboxStr});way["tourism"="camp_site"](${bboxStr});way["tourism"="caravan_site"](${bboxStr}););out center tags 60;`;
+  const q = `[out:json][timeout:20];(node["tourism"="camp_site"](${bboxStr});node["tourism"="caravan_site"](${bboxStr});way["tourism"="camp_site"](${bboxStr});way["tourism"="caravan_site"](${bboxStr}););out center tags 60;`;
   const data = await overpassFetch(q);
   return data.elements.map(el => {
     const lat = el.lat != null ? el.lat : (el.center && el.center.lat);
@@ -824,21 +824,24 @@ function splitSliceIntoChunks(slice, targetChunkKm, maxChunks) {
 }
 
 // Sucht Sehenswürdigkeiten entlang der KOMPLETTEN Etappe, nicht nur am
-// Etappenziel: die Strecke wird in Abschnitte zerlegt, jeder Abschnitt
-// einzeln (klein & schnell) abgefragt, die Treffer aus allen Abschnitten
-// zusammengeführt und nach Nähe zur Route sortiert.
+// Etappenziel: die Strecke wird in Abschnitte zerlegt und ALLE Abschnitte
+// PARALLEL abgefragt (nicht nacheinander) – sonst würde sich bei mehreren
+// Abschnitten die Wartezeit pro Abschnitt aufsummieren. Ein einzelner
+// fehlgeschlagener Abschnitt wird übersprungen, die übrigen zählen trotzdem.
 async function findSightsAlongRoute(slice, categories, bufferKm, onProgress) {
   if (!categories.length) return [];
   const chunks = splitSliceIntoChunks(slice, 50, 5);
-  const results = [];
-  for (let i = 0; i < chunks.length; i++) {
-    if (onProgress) onProgress(i + 1, chunks.length);
-    try {
-      const items = await findSights(chunks[i], categories, bufferKm);
-      results.push(...items);
-    } catch (e) { /* dieser Abschnitt ist fehlgeschlagen, mit den übrigen weitermachen */ }
-    if (i < chunks.length - 1) await sleep(300);
-  }
+  let done = 0;
+  const tasks = chunks.map(chunk =>
+    findSights(chunk, categories, bufferKm)
+      .catch(() => [])
+      .then(items => {
+        done++;
+        if (onProgress) onProgress(done, chunks.length);
+        return items;
+      })
+  );
+  const results = (await Promise.all(tasks)).flat();
   const seen = new Set();
   const merged = [];
   results.sort((a, b) => a.distKm - b.distKm);
@@ -863,7 +866,7 @@ async function findSights(slice, categories, bufferKm) {
     });
   });
   if (!filters.length) return [];
-  const q = `[out:json][timeout:9];(${filters.join('')});out center tags 80;`;
+  const q = `[out:json][timeout:20];(${filters.join('')});out center tags 80;`;
   const data = await overpassFetch(q);
   const step = Math.max(Math.floor(slice.length / 40), 1);
   const sample = slice.filter((_, i) => i % step === 0);
