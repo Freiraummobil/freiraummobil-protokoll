@@ -11,197 +11,218 @@
 <script src="lib/leaflet/leaflet.js"></script>
 <style>
 :root {
-  --blue: #1a3a5c;
-  --blue-light: #e8f0f8;
-  --blue-mid: #2d5f8e;
-  --green: #2d6a2d;
-  --green-bg: #eaf3ea;
-  --amber: #7a4f00;
-  --amber-bg: #fdf3dc;
-  --red: #8b1a1a;
-  --red-bg: #fdeaea;
-  --gray: #6b7280;
-  --gray-bg: #f4f4f4;
-  --border: #dde3ec;
-  --bg: #f0f4f8;
+  --accent: #ff5a36;
+  --accent-dark: #e2451f;
+  --accent-light: #ffe9e1;
+  --ink: #251e18;
+  --ink-soft: #82766a;
+  --green: #2f7a4d;
+  --green-bg: #e7f5ec;
+  --amber: #a8641f;
+  --amber-bg: #fbeedc;
+  --red: #cf4430;
+  --red-bg: #fbe6e1;
+  --border: #ece0d1;
+  --bg: #faf5ec;
   --card: #ffffff;
-  --text: #111827;
-  --text2: #4b5563;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 1px 4px rgba(0,0,0,0.07);
+  --field-bg: #faf6f0;
+  --text: var(--ink);
+  --text2: var(--ink-soft);
+  --radius: 20px;
+  --radius-sm: 14px;
+  --radius-pill: 999px;
+  --shadow: 0 6px 20px rgba(37, 30, 24, 0.07);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
+html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--ink); font-size: 15px; -webkit-font-smoothing: antialiased; }
+
+.icon { width: 18px; height: 18px; flex-shrink: 0; }
+.icon-sm { width: 12px; height: 12px; vertical-align: -1px; }
+.icon-hint { width: 13px; height: 13px; color: var(--accent-dark); vertical-align: -2px; }
 
 /* ── HEADER ── */
 .hdr {
   position: fixed; top: 0; left: 0; right: 0; z-index: 200;
-  background: var(--blue); color: #fff;
+  background: var(--bg); border-bottom: 1px solid var(--border);
   padding: env(safe-area-inset-top, 0) 0 0;
 }
-.hdr-inner { display: flex; align-items: center; gap: 10px; padding: 12px 16px 10px; }
-.hdr-icon { font-size: 22px; }
-.hdr-title { flex: 1; }
-.hdr-title h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.2px; }
-.hdr-title p { font-size: 11px; opacity: 0.75; margin-top: 1px; }
+.hdr-inner { display: flex; align-items: center; gap: 12px; padding: 14px 18px 12px; }
+.hdr-icon {
+  width: 40px; height: 40px; border-radius: 13px; background: var(--accent);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(255,90,54,0.35);
+}
+.hdr-icon .icon { width: 22px; height: 22px; color: #fff; }
+.hdr-title { flex: 1; min-width: 0; }
+.hdr-title h1 { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
+.hdr-title p { font-size: 11.5px; color: var(--ink-soft); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ── TAB NAV ── */
+/* ── TAB NAV (Segmented Pills) ── */
 .tab-nav {
-  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 62px); left: 0; right: 0; z-index: 199;
-  background: #fff; border-bottom: 1px solid var(--border);
-  display: flex; overflow-x: auto; scrollbar-width: none;
+  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 68px); left: 0; right: 0; z-index: 199;
+  background: var(--bg); padding: 0 12px 10px;
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
 .tab-nav::-webkit-scrollbar { display: none; }
 .tab-btn {
-  flex-shrink: 0; padding: 10px 14px; font-size: 12px; font-weight: 500;
-  color: var(--gray); border: none; background: transparent; cursor: pointer;
-  border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.2s;
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  flex-shrink: 0; padding: 9px 14px; font-size: 12.5px; font-weight: 600;
+  color: var(--ink-soft); border: 1px solid var(--border); background: var(--card); cursor: pointer;
+  border-radius: var(--radius-pill); white-space: nowrap; transition: all 0.2s;
+  display: flex; align-items: center; gap: 6px;
 }
-.tab-btn .tab-icon { font-size: 16px; }
-.tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+.tab-btn .icon { width: 15px; height: 15px; }
+.tab-btn.active { color: #fff; background: var(--accent); border-color: var(--accent); }
 
 /* ── MAIN ── */
 .main {
-  padding-top: calc(env(safe-area-inset-top, 0px) + 62px + 44px + 12px);
+  padding-top: calc(env(safe-area-inset-top, 0px) + 68px + 46px + 12px);
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 30px);
   min-height: 100vh;
 }
-.section { display: none; padding: 0 12px; }
+.section { display: none; padding: 0 14px; }
 .section.active { display: block; }
 
-.sec-header { padding: 4px 0 12px; }
-.sec-header h2 { font-size: 20px; font-weight: 700; color: var(--blue); }
-.sec-header p { font-size: 13px; color: var(--text2); margin-top: 3px; line-height: 1.4; }
+.sec-header { padding: 4px 0 14px; }
+.sec-header h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.4px; }
+.sec-header p { font-size: 13px; color: var(--ink-soft); margin-top: 4px; line-height: 1.45; }
 
 /* ── CARDS ── */
 .card {
   background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 14px; margin-bottom: 12px;
+  border-radius: var(--radius); padding: 16px; margin-bottom: 12px;
   box-shadow: var(--shadow);
 }
 .card-title {
-  font-size: 13px; font-weight: 600; color: var(--blue);
-  display: flex; align-items: center; gap: 7px; margin-bottom: 12px;
-  padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  font-size: 13.5px; font-weight: 700; color: var(--ink);
+  display: flex; align-items: center; gap: 9px; margin-bottom: 13px;
+  padding-bottom: 10px; border-bottom: 1px solid var(--border);
 }
-.card-title .ci { font-size: 17px; }
+.card-title .ci { width: 19px; height: 19px; color: var(--accent); }
 
 /* ── TIP BOX ── */
 .tip {
-  background: var(--blue-light); border-left: 3px solid var(--blue);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  padding: 9px 11px; margin-bottom: 12px;
+  background: var(--accent-light); border-radius: var(--radius-sm);
+  padding: 11px 13px; margin-bottom: 12px; display: flex; gap: 9px; align-items: flex-start;
 }
-.tip p { font-size: 12px; color: var(--blue); line-height: 1.5; }
-.tip strong { font-weight: 600; display: block; margin-bottom: 2px; }
-.tip.warn { background: var(--amber-bg); border-left-color: var(--amber); }
-.tip.warn p { color: var(--amber); }
+.tip .icon { color: var(--accent-dark); margin-top: 1px; }
+.tip p { font-size: 12px; color: #86331a; line-height: 1.5; }
+.tip strong { font-weight: 700; display: block; margin-bottom: 2px; color: #86331a; }
+.tip.warn { background: var(--amber-bg); }
+.tip.warn .icon { color: var(--amber); }
+.tip.warn p, .tip.warn strong { color: var(--amber); }
 
 /* ── FIELDS ── */
 .field { margin-bottom: 11px; }
 .field:last-child { margin-bottom: 0; }
-.field label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+.field label { display: block; font-size: 11px; font-weight: 700; color: var(--text2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
 .field input, .field select, .field textarea {
-  width: 100%; padding: 9px 11px; border: 1px solid var(--border);
+  width: 100%; padding: 10px 12px; border: 1.5px solid var(--border);
   border-radius: var(--radius-sm); font-size: 14px; font-family: inherit;
-  background: #fafafa; color: var(--text); appearance: none;
+  background: var(--field-bg); color: var(--text); appearance: none;
   -webkit-appearance: none; transition: border-color 0.2s;
 }
 .field input:focus, .field select:focus, .field textarea:focus {
-  outline: none; border-color: var(--blue-mid); background: #fff;
+  outline: none; border-color: var(--accent); background: #fff;
 }
-.field-hint { font-size: 11px; color: var(--gray); margin-top: 4px; }
+.field-hint { font-size: 11px; color: var(--ink-soft); margin-top: 5px; line-height: 1.4; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 
 /* ── CHIPS (multi-select) ── */
 .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
-  padding: 8px 13px; border-radius: 20px; border: 1px solid var(--border);
-  background: #fafafa; font-size: 12.5px; color: var(--text2); cursor: pointer;
+  padding: 8px 14px; border-radius: var(--radius-pill); border: 1.5px solid var(--border);
+  background: var(--field-bg); font-size: 12.5px; font-weight: 600; color: var(--text2); cursor: pointer;
   user-select: none; font-family: inherit; transition: all 0.15s;
 }
-.chip.sel { background: var(--blue); color: #fff; border-color: var(--blue); }
+.chip.sel { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 /* ── BUTTONS ── */
 .btn-bar { display: flex; gap: 8px; margin-top: 16px; padding-bottom: 8px; }
 .btn-prev, .btn-next {
-  flex: 1; padding: 13px; border-radius: var(--radius); font-size: 15px;
-  font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: opacity 0.2s;
+  flex: 1; padding: 13px; border-radius: var(--radius-pill); font-size: 15px;
+  font-weight: 700; cursor: pointer; border: none; font-family: inherit; transition: opacity 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
 }
-.btn-prev { background: #fff; color: var(--blue); border: 1px solid var(--border); }
-.btn-next { background: var(--blue); color: #fff; }
+.btn-prev { background: var(--card); color: var(--ink); border: 1.5px solid var(--border); }
+.btn-next { background: var(--accent); color: #fff; }
 .btn-next:active, .btn-prev:active { opacity: 0.8; }
 .btn-full {
-  width: 100%; padding: 14px; border-radius: var(--radius); font-size: 15px;
-  font-weight: 600; cursor: pointer; border: none; font-family: inherit;
+  width: 100%; padding: 14px; border-radius: var(--radius-pill); font-size: 15px;
+  font-weight: 700; cursor: pointer; border: none; font-family: inherit;
   margin-bottom: 10px; transition: opacity 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
 }
-.btn-primary { background: var(--blue); color: #fff; }
-.btn-secondary { background: #fff; color: var(--blue); border: 1px solid var(--border); }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-secondary { background: var(--card); color: var(--ink); border: 1.5px solid var(--border); }
 .btn-full:active { opacity: 0.8; }
 .btn-full:disabled { opacity: 0.5; cursor: default; }
 
 /* ── RESULT ── */
-.sum-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+.sum-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .sum-row:last-child { border-bottom: none; }
 .sum-key { color: var(--text2); }
-.sum-val { font-weight: 600; text-align: right; }
+.sum-val { font-weight: 700; text-align: right; }
 
 .map-wrap { height: 320px; border-radius: var(--radius); overflow: hidden; margin-bottom: 12px; border: 1px solid var(--border); }
-#map { height: 100%; width: 100%; background: #dde3ec; }
+#map { height: 100%; width: 100%; background: var(--border); }
 .num-marker div {
   width: 26px; height: 26px; border-radius: 50%; color: #fff; font-size: 12px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(37,30,24,0.4);
   border: 2px solid #fff;
 }
+.num-marker div .icon { width: 13px; height: 13px; }
 
 .day-card {
   background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 14px; margin-bottom: 12px; box-shadow: var(--shadow);
+  border-radius: var(--radius); padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow);
 }
-.day-head { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
+.day-head { display: flex; align-items: center; gap: 11px; margin-bottom: 2px; }
 .day-badge {
-  width: 30px; height: 30px; border-radius: 50%; background: var(--blue); color: #fff;
+  width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #fff;
   display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0;
 }
-.day-head strong { display: block; font-size: 14px; }
-.day-km { font-size: 11.5px; color: var(--gray); }
-.day-sub { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.4px; margin: 10px 0 6px; }
+.day-badge .icon { width: 16px; height: 16px; }
+.day-head strong { display: block; font-size: 14.5px; }
+.day-km { font-size: 11.5px; color: var(--ink-soft); }
+.day-sub { font-size: 11px; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.5px; margin: 12px 0 7px; }
 
-.spot-item { background: var(--bg); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 6px; }
+.spot-item { background: var(--field-bg); border-radius: var(--radius-sm); padding: 11px; margin-bottom: 6px; }
 .spot-item:last-child { margin-bottom: 0; }
-.spot-item.spot-best { background: var(--green-bg); border: 1px solid #bfe0bf; }
-.spot-item strong { display: block; font-size: 13px; margin-bottom: 2px; }
-.spot-item span { display: inline-block; font-size: 11.5px; color: var(--gray); }
+.spot-item.spot-best { background: var(--green-bg); border: 1px solid #bcdec8; }
+.spot-item strong { display: flex; align-items: center; gap: 5px; font-size: 13px; margin-bottom: 2px; }
+.spot-item strong .icon { color: var(--accent); }
+.spot-item.spot-best strong .icon { color: var(--green); }
+.spot-item span { display: inline-block; font-size: 11.5px; color: var(--ink-soft); }
 .spot-item .sight-chip { margin: 4px 4px 0 0; }
-.spot-link { display: inline-block; margin-top: 6px; font-size: 12px; color: var(--blue-mid); text-decoration: none; font-weight: 600; }
+.spot-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 7px; font-size: 12px; color: var(--accent-dark); text-decoration: none; font-weight: 700; }
+.spot-link .icon { width: 12px; height: 12px; }
 .spot-error { color: var(--red); font-size: 12.5px; }
-.text-muted { color: var(--gray); font-size: 12.5px; }
+.text-muted { color: var(--ink-soft); font-size: 12.5px; }
 
 .sights-wrap { display: flex; flex-direction: column; gap: 6px; }
 .sight-chip {
-  display: inline-block; background: var(--blue-light); color: var(--blue);
-  padding: 4px 9px; border-radius: 14px; font-size: 11.5px;
+  display: inline-flex; align-items: center; gap: 3px; background: var(--accent-light); color: #86331a;
+  padding: 4px 9px; border-radius: var(--radius-pill); font-size: 11.5px; font-weight: 600;
 }
-.sight-chip em { font-style: normal; color: var(--blue-mid); }
+.sight-chip .icon { color: #86331a; }
+.sight-chip em { font-style: normal; }
 
-.sight-item { background: var(--blue-light); border-radius: var(--radius-sm); padding: 10px; }
-.sight-item strong { display: block; font-size: 13px; margin-bottom: 2px; color: var(--blue); }
-.sight-item .sight-meta { font-size: 11.5px; color: var(--blue-mid); }
-.sight-item .sight-desc { font-size: 12px; color: var(--text2); line-height: 1.4; margin-top: 5px; }
-.sight-item .spot-link { color: var(--blue); }
+.sight-item { background: var(--accent-light); border-radius: var(--radius-sm); padding: 11px; }
+.sight-item strong { display: flex; align-items: center; gap: 5px; font-size: 13px; margin-bottom: 2px; color: #86331a; }
+.sight-item strong .icon { color: var(--accent-dark); }
+.sight-item .sight-meta { font-size: 11.5px; color: #a15736; font-weight: 600; }
+.sight-item .sight-desc { font-size: 12px; color: var(--ink); opacity: 0.8; line-height: 1.4; margin-top: 6px; }
+.sight-item .spot-link { color: var(--accent-dark); }
 
-.footnote { font-size: 11px; color: var(--gray); line-height: 1.5; padding: 4px 4px 20px; text-align: center; }
+.footnote { font-size: 11px; color: var(--ink-soft); line-height: 1.5; padding: 4px 4px 20px; text-align: center; }
 
 /* ── LOADING ── */
 .loading-box { display: none; text-align: center; padding: 40px 10px; }
 .loading-box.show { display: block; }
 .spinner {
-  width: 34px; height: 34px; border: 3px solid var(--border); border-top-color: var(--blue);
+  width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent);
   border-radius: 50%; margin: 0 auto 14px; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -211,8 +232,8 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .toast {
   position: fixed; bottom: calc(env(safe-area-inset-bottom,0px) + 20px);
   left: 50%; transform: translateX(-50%);
-  background: #1f2937; color: #fff; padding: 10px 20px;
-  border-radius: 20px; font-size: 13px; z-index: 999;
+  background: var(--ink); color: #fff; padding: 10px 20px;
+  border-radius: var(--radius-pill); font-size: 13px; z-index: 999;
   opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap;
   max-width: 90vw; overflow: hidden; text-overflow: ellipsis;
 }
@@ -224,7 +245,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 <!-- HEADER -->
 <div class="hdr">
   <div class="hdr-inner">
-    <div class="hdr-icon">🗺️</div>
+    <div class="hdr-icon" data-icon="map"></div>
     <div class="hdr-title">
       <h1>Reiseplaner</h1>
       <p id="hdrSub">Für Wohnmobil- &amp; Camper-Touren</p>
@@ -234,10 +255,10 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
 <!-- TAB NAV -->
 <div class="tab-nav" id="tabNav">
-  <button class="tab-btn active" onclick="goTo(0)"><span class="tab-icon">🚐</span>Fahrzeug</button>
-  <button class="tab-btn" onclick="goTo(1)"><span class="tab-icon">⚙️</span>Präferenzen</button>
-  <button class="tab-btn" onclick="goTo(2)"><span class="tab-icon">🧭</span>Route</button>
-  <button class="tab-btn" onclick="goTo(3)"><span class="tab-icon">📅</span>Reiseplan</button>
+  <button class="tab-btn active" onclick="goTo(0)"><span class="tab-icon" data-icon="van"></span>Fahrzeug</button>
+  <button class="tab-btn" onclick="goTo(1)"><span class="tab-icon" data-icon="settings"></span>Präferenzen</button>
+  <button class="tab-btn" onclick="goTo(2)"><span class="tab-icon" data-icon="compass"></span>Route</button>
+  <button class="tab-btn" onclick="goTo(3)"><span class="tab-icon" data-icon="calendar"></span>Reiseplan</button>
 </div>
 
 <!-- MAIN -->
@@ -251,7 +272,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
     </div>
 
     <div class="card">
-      <div class="card-title"><span class="ci">🚐</span>Fahrzeug</div>
+      <div class="card-title"><span class="ci" data-icon="van"></span>Fahrzeug</div>
       <div class="field"><label>Name / Kennzeichen</label><input type="text" id="fz-name" placeholder="z.B. Freiraummobil BO FR 1000"></div>
       <div class="field"><label>Fahrzeugtyp</label>
         <select id="fz-typ">
@@ -272,7 +293,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
     </div>
 
     <div class="card">
-      <div class="card-title"><span class="ci">⛽</span>Antrieb &amp; Tanks</div>
+      <div class="card-title"><span class="ci" data-icon="fuel"></span>Antrieb &amp; Tanks</div>
       <div class="grid2">
         <div class="field"><label>Kraftstoff</label>
           <select id="fz-kraftstoff">
@@ -291,7 +312,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
       </div>
     </div>
 
-    <button class="btn-full btn-secondary" onclick="resetProfile()">🔄 Fahrzeugdaten zurücksetzen</button>
+    <button class="btn-full btn-secondary" onclick="resetProfile()"><span class="icon" data-icon="refresh"></span>Fahrzeugdaten zurücksetzen</button>
     <div class="btn-bar"><button class="btn-next btn-full" onclick="goTo(1)">Weiter: Präferenzen →</button></div>
   </div>
 
@@ -303,22 +324,22 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
     </div>
 
     <div class="card">
-      <div class="card-title"><span class="ci">🅿️</span>Bevorzugte Stellplatz-Art</div>
+      <div class="card-title"><span class="ci" data-icon="parking"></span>Bevorzugte Stellplatz-Art</div>
       <div class="chip-row" id="chips-stellplatztyp"></div>
     </div>
 
     <div class="card">
-      <div class="card-title"><span class="ci">🔌</span>Wichtige Ausstattung</div>
+      <div class="card-title"><span class="ci" data-icon="plug"></span>Wichtige Ausstattung</div>
       <div class="chip-row" id="chips-ausstattung"></div>
     </div>
 
     <div class="card">
-      <div class="card-title"><span class="ci">🏞️</span>Interessen für Sehenswürdigkeiten</div>
+      <div class="card-title"><span class="ci" data-icon="landscape"></span>Interessen für Sehenswürdigkeiten</div>
       <div class="chip-row" id="chips-sights"></div>
     </div>
 
     <div class="card">
-      <div class="card-title"><span class="ci">🛣️</span>Fahrverhalten</div>
+      <div class="card-title"><span class="ci" data-icon="road"></span>Fahrverhalten</div>
       <div class="grid2">
         <div class="field"><label>Max. km pro Tag</label><input type="number" id="pref-km" placeholder="250"></div>
         <div class="field"><label>Max. Fahrzeit pro Tag (Std.)</label><input type="number" step="0.5" id="pref-stunden" placeholder="4"></div>
@@ -342,16 +363,16 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
       <p>Nur das hier musst du für jede neue Reise eingeben.</p>
     </div>
 
-    <div class="tip"><p><strong>Hinweis</strong>Der Reiseplaner nutzt kostenlose, öffentliche OpenStreetMap-Dienste (Nominatim, OSRM, Overpass) live im Browser. Für die Berechnung wird eine Internetverbindung benötigt; bei hoher Auslastung dieser Dienste kann es zu Wartezeiten kommen.</p></div>
+    <div class="tip"><span class="icon" data-icon="info"></span><p><strong>Hinweis</strong>Der Reiseplaner nutzt kostenlose, öffentliche OpenStreetMap-Dienste (Nominatim, OSRM, Overpass) live im Browser. Für die Berechnung wird eine Internetverbindung benötigt; bei hoher Auslastung dieser Dienste kann es zu Wartezeiten kommen.</p></div>
 
     <div class="card">
-      <div class="card-title"><span class="ci">🧭</span>Strecke</div>
+      <div class="card-title"><span class="ci" data-icon="compass"></span>Strecke</div>
       <div class="field"><label>Start</label><input type="text" id="start-ort" placeholder="z.B. Köln"></div>
       <div class="field"><label>Ziel</label><input type="text" id="ziel-ort" placeholder="z.B. Verona, Italien"></div>
     </div>
 
     <div class="card">
-      <div class="card-title"><span class="ci">📅</span>Verfügbarer Zeitraum</div>
+      <div class="card-title"><span class="ci" data-icon="calendar"></span>Verfügbarer Zeitraum</div>
       <div class="grid2">
         <div class="field"><label>Abfahrt</label><input type="date" id="reise-start"></div>
         <div class="field"><label>Ankunft spätestens</label><input type="date" id="reise-ende"></div>
@@ -359,7 +380,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
       <div class="field-hint">Die App berechnet daraus die Anzahl Fahrtage und verteilt die Strecke entsprechend deiner Tageskilometer-Präferenz.</div>
     </div>
 
-    <button class="btn-full btn-primary" id="btnCompute" onclick="computeTrip()">🧭 Reiseplan berechnen</button>
+    <button class="btn-full btn-primary" id="btnCompute" onclick="computeTrip()"><span class="icon" data-icon="compass"></span>Reiseplan berechnen</button>
 
     <div class="btn-bar"><button class="btn-prev" onclick="goTo(1)">← Zurück</button></div>
   </div>
@@ -377,12 +398,12 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
     </div>
 
     <div id="resultError"></div>
-    <div id="resultEmpty" class="tip"><p><strong>Noch kein Plan</strong>Gib unter „Route“ Start, Ziel und Zeitraum ein und tippe auf „Reiseplan berechnen“.</p></div>
+    <div id="resultEmpty" class="tip"><span class="icon" data-icon="info"></span><p><strong>Noch kein Plan</strong>Gib unter „Route“ Start, Ziel und Zeitraum ein und tippe auf „Reiseplan berechnen“.</p></div>
 
     <div id="resultContent" style="display:none">
       <div class="tip warn" id="resultWarning" style="display:none"></div>
       <div class="card">
-        <div class="card-title"><span class="ci">📊</span>Übersicht</div>
+        <div class="card-title"><span class="ci" data-icon="chart"></span>Übersicht</div>
         <div id="resultSummary"></div>
       </div>
       <div class="map-wrap"><div id="map"></div></div>
@@ -551,6 +572,43 @@ function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 function shortName(displayName) { return (displayName || '').split(',').slice(0, 2).join(', '); }
+
+// ══════════════════════════════════════════════════════════════
+// ICONS (schlichte Strich-Icons statt Emoji)
+// ══════════════════════════════════════════════════════════════
+const ICON_PATHS = {
+  van: '<rect x="2" y="9" width="14" height="7" rx="1.5"/><path d="M16 11h3.5L21 13.5V16h-5"/><circle cx="6.5" cy="17.5" r="1.6"/><circle cx="16.5" cy="17.5" r="1.6"/><path d="M2 12h5"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.3-2-3.5-2.3.6a7.7 7.7 0 0 0-1.7-1L15 3h-4l-.4 2.3a7.7 7.7 0 0 0-1.7 1l-2.3-.6-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.3 2 3.5 2.3-.6a7.7 7.7 0 0 0 1.7 1L11 21h4l.4-2.3a7.7 7.7 0 0 0 1.7-1l2.3.6 2-3.5-2-1.3z"/>',
+  compass: '<circle cx="12" cy="12" r="9"/><path d="M15 9l-2 6-6 2 2-6z"/>',
+  calendar: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/>',
+  map: '<path d="M9 4 4 6v14l5-2 6 2 5-2V4l-5 2-6-2z"/><path d="M9 4v14M15 6v14"/>',
+  fuel: '<rect x="4" y="4" width="10" height="16" rx="1.5"/><path d="M14 9h2.5L19 11.5V17a1.5 1.5 0 0 1-3 0v-2a1 1 0 0 0-1-1h-1"/><path d="M7 8h4"/>',
+  parking: '<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M9.5 16V8h3.3a2.6 2.6 0 0 1 0 5.2H9.5"/>',
+  plug: '<path d="M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-5 5 5 5 0 0 1-5-5V7z"/><path d="M12 16v5"/>',
+  landscape: '<path d="M3 18l5-7 3.5 4.5L15 9l6 9z"/><circle cx="8" cy="7" r="2"/>',
+  road: '<path d="M8 21 11 3h2l3 18"/><path d="M12 5v2M12 10.5v2M12 16v2"/>',
+  chart: '<path d="M4 20V10M11 20V4M18 20v-7"/><path d="M2 20h20"/>',
+  refresh: '<path d="M20 11A8 8 0 0 0 6.3 6.3L4 8.6M4 4v4.6h4.6"/><path d="M4 13a8 8 0 0 0 13.7 4.7L20 15.4M20 20v-4.6h-4.6"/>',
+  flag: '<path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/>',
+  star: '<path d="M12 3l2.7 5.9 6.3.6-4.8 4.3 1.4 6.2L12 16.9 6.4 20l1.4-6.2L3 9.5l6.3-.6z"/>',
+  pin: '<path d="M12 21s7-6.6 7-11.5A7 7 0 0 0 5 9.5C5 14.4 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.3"/>',
+  bolt: '<path d="M13 2 4 14h6l-1 8 9-12h-6z"/>',
+  droplet: '<path d="M12 3S5.5 10.5 5.5 15a6.5 6.5 0 0 0 13 0C18.5 10.5 12 3 12 3z"/>',
+  shower: '<path d="M4 8a4 4 0 0 1 4-4h5a4 4 0 0 1 4 4"/><path d="M3 8h18M7 12v1M11 12v1M15 12v1M9 16v1M13 16v1M11 20v1"/>',
+  wifi: '<path d="M3 8.5a13 13 0 0 1 18 0"/><path d="M6.3 12a8.5 8.5 0 0 1 11.4 0"/><path d="M9.5 15.5a4 4 0 0 1 5 0"/><circle cx="12" cy="19" r="1"/>',
+  paw: '<circle cx="7" cy="8" r="1.6"/><circle cx="12" cy="6" r="1.6"/><circle cx="17" cy="8" r="1.6"/><path d="M12 12c-3.5 0-6 2.2-6 4.8 0 1.7 1.4 2.7 3 2.2.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.6.5 3-.5 3-2.2 0-2.6-2.5-4.8-6-4.8z"/>',
+  tag: '<path d="M12.6 3H5a2 2 0 0 0-2 2v7.6c0 .5.2 1 .6 1.4l8.4 8.4c.8.8 2 .8 2.8 0l6-6c.8-.8.8-2 0-2.8L12.4 3.6c-.4-.4-.9-.6-1.4-.6z"/><circle cx="8" cy="8" r="1.4"/>',
+  warning: '<path d="M12 3 2 20h20z" stroke-linejoin="round"/><path d="M12 10v4M12 17h.01"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 8v.01"/>',
+  externalLink: '<path d="M7 17 17 7M9 7h8v8"/>'
+};
+function icon(name, cls) {
+  const inner = ICON_PATHS[name] || '';
+  return `<svg viewBox="0 0 24 24" class="icon${cls ? ' ' + cls : ''}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+}
+function injectIcons(root) {
+  (root || document).querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });
+}
 
 // ══════════════════════════════════════════════════════════════
 // GEO HELPERS
@@ -754,12 +812,12 @@ async function findBestCampsites(coord, p) {
 function campsiteLabel(t) { return t.tourism === 'caravan_site' ? 'Wohnmobil-/Caravan-Stellplatz' : 'Campingplatz'; }
 function campsiteAmenities(t) {
   const list = [];
-  if (t.power_supply || t.electricity === 'yes') list.push('⚡ Strom');
-  if (t.drinking_water === 'yes') list.push('💧 Frischwasser');
-  if (t.shower === 'yes') list.push('🚿 Dusche');
-  if (t.internet_access && t.internet_access !== 'no') list.push('📶 WLAN');
-  if (t.dog && t.dog !== 'no') list.push('🐾 Hunde ok');
-  if (t.fee === 'no') list.push('🆓 Kostenlos');
+  if (t.power_supply || t.electricity === 'yes') list.push({ icon: 'bolt', label: 'Strom' });
+  if (t.drinking_water === 'yes') list.push({ icon: 'droplet', label: 'Frischwasser' });
+  if (t.shower === 'yes') list.push({ icon: 'shower', label: 'Dusche' });
+  if (t.internet_access && t.internet_access !== 'no') list.push({ icon: 'wifi', label: 'WLAN' });
+  if (t.dog && t.dog !== 'no') list.push({ icon: 'paw', label: 'Hunde ok' });
+  if (t.fee === 'no') list.push({ icon: 'tag', label: 'Kostenlos' });
   return list;
 }
 
@@ -990,7 +1048,7 @@ function setPlanLoading(on) {
   }
 }
 function showResultError(msg) {
-  document.getElementById('resultError').innerHTML = `<div class="tip warn"><p><strong>⚠️ Fehler</strong>${escapeHtml(msg)}</p></div>`;
+  document.getElementById('resultError').innerHTML = `<div class="tip warn">${icon('warning')}<p><strong>Fehler</strong>${escapeHtml(msg)}</p></div>`;
   document.getElementById('resultEmpty').style.display = 'none';
 }
 function setPlanLoadingText(msg) {
@@ -1092,7 +1150,7 @@ function renderResult(startPoint, zielPoint, route, plan) {
   const warnBox = document.getElementById('resultWarning');
   if (plan.warning) {
     warnBox.style.display = 'block';
-    warnBox.innerHTML = `<p><strong>⚠️ Hinweis</strong>${escapeHtml(plan.warning)}</p>`;
+    warnBox.innerHTML = `${icon('warning')}<p><strong>Hinweis</strong>${escapeHtml(plan.warning)}</p>`;
   } else {
     warnBox.style.display = 'none';
   }
@@ -1100,13 +1158,13 @@ function renderResult(startPoint, zielPoint, route, plan) {
   const m = ensureMap();
   if (mapLayer) mapLayer.remove();
   mapLayer = L.layerGroup().addTo(m);
-  const line = L.polyline(route.coords, { color: '#2d5f8e', weight: 4 }).addTo(mapLayer);
-  L.marker(route.coords[0], { icon: numIcon('S', '#2d6a2d') }).addTo(mapLayer)
+  const line = L.polyline(route.coords, { color: '#ff5a36', weight: 4 }).addTo(mapLayer);
+  L.marker(route.coords[0], { icon: numIcon('S', '#2f7a4d') }).addTo(mapLayer)
     .bindPopup('Start: ' + escapeHtml(shortName(startPoint.name)));
 
   plan.days.forEach(day => {
-    const label = day.isLast ? '🏁' : String(day.index);
-    const color = day.isLast ? '#8b1a1a' : '#1a3a5c';
+    const label = day.isLast ? icon('flag') : String(day.index);
+    const color = day.isLast ? '#ff5a36' : '#251e18';
     const best = day.campsites && day.campsites[0];
     const popup = day.isLast
       ? 'Ziel: ' + escapeHtml(shortName(zielPoint.name)) + (best ? ' – Stellplatz: ' + escapeHtml(best.tags.name || campsiteLabel(best.tags)) : '')
@@ -1115,7 +1173,7 @@ function renderResult(startPoint, zielPoint, route, plan) {
     (day.sights || []).forEach(s => {
       const link = s.link || `https://www.openstreetmap.org/?mlat=${s.lat}&mlon=${s.lon}#map=17/${s.lat}/${s.lon}`;
       const desc = s.description ? `<br>${escapeHtml(s.description)}` : '';
-      L.circleMarker([s.lat, s.lon], { radius: 5, color: '#7a4f00', fillColor: '#fdf3dc', fillOpacity: 0.9, weight: 2 })
+      L.circleMarker([s.lat, s.lon], { radius: 5, color: '#e2451f', fillColor: '#ffe9e1', fillOpacity: 0.9, weight: 2 })
         .addTo(mapLayer).bindPopup(
           `<strong>${escapeHtml(s.name)}</strong> (${escapeHtml(s.category)})${desc}<br>` +
           `<a href="${escapeHtml(link)}" target="_blank" rel="noopener">Mehr erfahren ↗</a>`
@@ -1132,7 +1190,7 @@ function dayCardHtml(day, zielPoint) {
   const title = day.isLast ? 'Ankunft am Ziel & Stellplatz-Vorschläge' : 'Übernachtungs-Vorschläge';
   const nearLabel = day.isLast ? 'km vom Ziel' : 'km vom Etappenziel';
   let stayHtml = day.isLast
-    ? `<div class="spot-item spot-best"><strong>🏁 ${escapeHtml(shortName(zielPoint.name))}</strong><span>Ende der Route</span></div>`
+    ? `<div class="spot-item spot-best"><strong>${icon('flag')}${escapeHtml(shortName(zielPoint.name))}</strong><span>Ende der Route</span></div>`
     : '';
   if (day.campsiteError) {
     stayHtml += `<div class="spot-item"><span class="spot-error">Stellplatzsuche fehlgeschlagen: ${escapeHtml(day.campsiteError)}</span></div>`;
@@ -1140,14 +1198,14 @@ function dayCardHtml(day, zielPoint) {
     stayHtml += `<div class="spot-item"><span class="spot-error">Auch im erweiterten Umkreis von ${day.campsiteRadiusKm} km wurde kein Stellplatz gefunden (OpenStreetMap hat hier offenbar keine Daten). Bitte manuell auf der Karte prüfen.</span></div>`;
   } else {
     const hint = day.campsiteExpanded
-      ? `<div class="field-hint">ℹ️ Im bevorzugten Umkreis nichts gefunden – Suche auf ${day.campsiteRadiusKm} km erweitert, Vorschläge erfüllen ggf. nicht alle Präferenzen.</div>`
+      ? `<div class="field-hint">${icon('info', 'icon-hint')} Im bevorzugten Umkreis nichts gefunden – Suche auf ${day.campsiteRadiusKm} km erweitert, Vorschläge erfüllen ggf. nicht alle Präferenzen.</div>`
       : '';
     stayHtml += hint + day.campsites.map((s, i) => `
       <div class="spot-item ${i === 0 ? 'spot-best' : ''}">
-        <strong>${i === 0 ? '⭐ ' : ''}${escapeHtml(s.tags.name || campsiteLabel(s.tags))}</strong>
+        <strong>${i === 0 ? icon('star') : icon('parking')}${escapeHtml(s.tags.name || campsiteLabel(s.tags))}</strong>
         <span>${campsiteLabel(s.tags)} · ${s.distKm.toFixed(1)} ${nearLabel}</span><br>
-        ${campsiteAmenities(s.tags).map(a => `<span class="sight-chip">${escapeHtml(a)}</span>`).join('')}
-        <a class="spot-link" href="https://www.openstreetmap.org/?mlat=${s.lat}&mlon=${s.lon}#map=16/${s.lat}/${s.lon}" target="_blank" rel="noopener">Auf Karte öffnen ↗</a>
+        ${campsiteAmenities(s.tags).map(a => `<span class="sight-chip">${icon(a.icon, 'icon-sm')} ${escapeHtml(a.label)}</span>`).join('')}
+        <a class="spot-link" href="https://www.openstreetmap.org/?mlat=${s.lat}&mlon=${s.lon}#map=16/${s.lat}/${s.lon}" target="_blank" rel="noopener">Auf Karte öffnen ${icon('externalLink', 'icon-sm')}</a>
       </div>`).join('');
   }
 
@@ -1158,21 +1216,21 @@ function dayCardHtml(day, zielPoint) {
     sightsHtml = `<span class="text-muted">Auch im erweiterten Umkreis von ${day.sightRadiusKm} km wurden keine Sehenswürdigkeiten gefunden (OpenStreetMap &amp; Wikipedia durchsucht).</span>`;
   } else {
     const hint = day.sightExpanded
-      ? `<div class="field-hint">ℹ️ ${day.sightAllCategories ? 'Nichts zu deinen gewählten Interessen gefunden – zeige allgemeine Sehenswürdigkeiten' : 'Umkreis erweitert'} auf ${day.sightRadiusKm} km.</div>`
+      ? `<div class="field-hint">${icon('info', 'icon-hint')} ${day.sightAllCategories ? 'Nichts zu deinen gewählten Interessen gefunden – zeige allgemeine Sehenswürdigkeiten' : 'Umkreis erweitert'} auf ${day.sightRadiusKm} km.</div>`
       : '';
     sightsHtml = hint + day.sights.map((s, i) => `
       <div class="sight-item" id="sight-${day.index}-${i}">
-        <strong>📍 ${escapeHtml(s.name)}</strong>
+        <strong>${icon('pin')}${escapeHtml(s.name)}</strong>
         <span class="sight-meta">${escapeHtml(s.category)} · ${s.distKm.toFixed(1)} km von der Route</span>
         ${s.description ? `<div class="sight-desc">${escapeHtml(s.description)}</div>` : ''}
-        <a class="spot-link" href="${escapeHtml(s.link || ('https://www.openstreetmap.org/?mlat=' + s.lat + '&mlon=' + s.lon + '#map=17/' + s.lat + '/' + s.lon))}" target="_blank" rel="noopener">Mehr erfahren ↗</a>
+        <a class="spot-link" href="${escapeHtml(s.link || ('https://www.openstreetmap.org/?mlat=' + s.lat + '&mlon=' + s.lon + '#map=17/' + s.lat + '/' + s.lon))}" target="_blank" rel="noopener">Mehr erfahren ${icon('externalLink', 'icon-sm')}</a>
       </div>`).join('');
   }
 
   return `
     <div class="day-card">
       <div class="day-head">
-        <div class="day-badge">${day.isLast ? '🏁' : day.index}</div>
+        <div class="day-badge">${day.isLast ? icon('flag') : day.index}</div>
         <div><strong>Tag ${day.index}</strong><span class="day-km">${Math.round(day.distanceKm)} km Fahrstrecke</span></div>
       </div>
       <div class="day-sub">${title}</div>
@@ -1186,6 +1244,7 @@ function dayCardHtml(day, zielPoint) {
 // INIT
 // ══════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
+  injectIcons();
   renderChips();
   loadProfile();
   loadPrefs();
