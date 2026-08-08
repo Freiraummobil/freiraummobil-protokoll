@@ -938,17 +938,45 @@ async function findOpenTripMapSights(coord, bufferKm, categories) {
     }));
 }
 
+// Vierte Datenquelle: Wikivoyages Geosuche – gleiche MediaWiki-API wie
+// Wikipedia, kein API-Key, aber reisefokussierte Inhalte (was gibt's zu
+// sehen/tun). Deckt oft eher Orte/Stadtteile als einzelne Landmarken ab,
+// ergänzt die anderen Quellen damit sinnvoll statt sie zu duplizieren.
+async function findWikivoyageSights(coord, bufferKm) {
+  const radiusM = Math.min(Math.max(Math.round(bufferKm * 1000), 1000), 10000);
+  const url = `https://en.wikivoyage.org/w/api.php?action=query&generator=geosearch&ggscoord=${coord[0]}|${coord[1]}&ggsradius=${radiusM}&ggslimit=15&prop=extracts|coordinates|info&exintro=1&explaintext=1&exsentences=2&inprop=url&format=json&origin=*`;
+  const res = await fetchWithTimeout(url, undefined, 10000);
+  if (!res.ok) throw new Error('Wikivoyage-Suche fehlgeschlagen (HTTP ' + res.status + ')');
+  const data = await res.json();
+  const pages = (data.query && data.query.pages) || {};
+  return Object.values(pages)
+    .filter(p => p.coordinates && p.coordinates.length)
+    .map(p => {
+      const c = p.coordinates[0];
+      return {
+        name: p.title,
+        lat: c.lat,
+        lon: c.lon,
+        category: 'Wikivoyage',
+        distKm: haversineKm(coord, [c.lat, c.lon]),
+        description: (p.extract || '').trim() || null,
+        link: p.fullurl || `https://en.wikivoyage.org/wiki/${encodeURIComponent(p.title.replace(/ /g, '_'))}`
+      };
+    });
+}
+
 // Sucht Sehenswürdigkeiten entlang der KOMPLETTEN Etappe, nicht nur am
 // Etappenziel: die Strecke wird in Abschnitte zerlegt und ALLE Abschnitte
 // PARALLEL abgefragt (nicht nacheinander) – sonst würde sich bei mehreren
 // Abschnitten die Wartezeit pro Abschnitt aufsummieren. Pro Abschnitt laufen
-// bis zu drei unabhängige Quellen (OSM/Overpass, Wikipedia, OpenTripMap) mit;
-// scheitert eine Quelle technisch, zählen trotzdem die anderen. Nur wenn
-// WIRKLICH ALLE Anfragen technisch fehlschlagen, wird das als Fehler nach
-// oben gereicht statt es als "nichts gefunden" zu verschleiern.
+// bis zu vier unabhängige Quellen (OSM/Overpass, Wikipedia, OpenTripMap,
+// Wikivoyage) mit; scheitert eine Quelle technisch, zählen trotzdem die
+// anderen. Nur wenn WIRKLICH ALLE Anfragen technisch fehlschlagen, wird das
+// als Fehler nach oben gereicht statt es als "nichts gefunden" zu
+// verschleiern.
 async function findSightsAlongRoute(slice, categories, bufferKm, onProgress) {
   const chunks = splitSliceIntoChunks(slice, 50, 5);
-  const sourcesPerChunk = (categories.length ? 1 : 0) + 2;
+  const sourcesPerChunk = (categories.length ? 1 : 0) + 3;
   const total = chunks.length * sourcesPerChunk;
   let done = 0, failed = 0;
   const bump = ok => { done++; if (!ok) failed++; if (onProgress) onProgress(done, total); };
@@ -960,10 +988,11 @@ async function findSightsAlongRoute(slice, categories, bufferKm, onProgress) {
     const mid = chunk[Math.floor(chunk.length / 2)];
     tasks.push(findWikipediaSights(mid, bufferKm).then(items => { bump(true); return items; }, () => { bump(false); return []; }));
     tasks.push(findOpenTripMapSights(mid, bufferKm, categories).then(items => { bump(true); return items; }, () => { bump(false); return []; }));
+    tasks.push(findWikivoyageSights(mid, bufferKm).then(items => { bump(true); return items; }, () => { bump(false); return []; }));
   });
   const results = (await Promise.all(tasks)).flat();
   if (results.length === 0 && failed === total) {
-    throw new Error('Weder OpenStreetMap, Wikipedia noch OpenTripMap waren erreichbar');
+    throw new Error('Weder OpenStreetMap, Wikipedia, OpenTripMap noch Wikivoyage waren erreichbar');
   }
   const seen = new Set();
   const merged = [];
