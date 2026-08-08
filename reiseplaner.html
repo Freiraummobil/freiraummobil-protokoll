@@ -797,6 +797,60 @@ function bboxFromSlice(slice, bufferKm) {
   const dLon = bufferKm / (111 * Math.max(Math.cos(midLat * Math.PI / 180), 0.15));
   return [south - dLat, west - dLon, north + dLat, east + dLon];
 }
+
+// Eine einzelne Overpass-Anfrage über die komplette (oft hunderte km lange)
+// Tagesetappe ist zu groß/komplex und läuft serverseitig in ein Timeout,
+// das dann fälschlich als "nichts gefunden" ankommt. Deshalb wird die
+// Etappe in kurze Abschnitte zerlegt, sodass jede Anfrage klein & schnell
+// bleibt, aber zusammen die GANZE Strecke abgedeckt wird.
+function splitSliceIntoChunks(slice, targetChunkKm, maxChunks) {
+  if (slice.length < 2) return [slice];
+  const cum = [0];
+  for (let i = 1; i < slice.length; i++) cum.push(cum[i - 1] + haversineKm(slice[i - 1], slice[i]));
+  const totalKm = cum[cum.length - 1];
+  const chunkCount = Math.min(Math.max(Math.ceil(totalKm / targetChunkKm), 1), maxChunks);
+  const chunkKm = totalKm / chunkCount;
+  const chunks = [];
+  let prevIdx = 0;
+  for (let c = 1; c <= chunkCount; c++) {
+    const targetKm = c === chunkCount ? totalKm : c * chunkKm;
+    let idx = prevIdx;
+    while (idx < cum.length - 1 && cum[idx] < targetKm) idx++;
+    if (idx <= prevIdx) idx = Math.min(prevIdx + 1, slice.length - 1);
+    chunks.push(slice.slice(prevIdx, idx + 1));
+    prevIdx = idx;
+  }
+  return chunks;
+}
+
+// Sucht Sehenswürdigkeiten entlang der KOMPLETTEN Etappe, nicht nur am
+// Etappenziel: die Strecke wird in Abschnitte zerlegt, jeder Abschnitt
+// einzeln (klein & schnell) abgefragt, die Treffer aus allen Abschnitten
+// zusammengeführt und nach Nähe zur Route sortiert.
+async function findSightsAlongRoute(slice, categories, bufferKm, onProgress) {
+  if (!categories.length) return [];
+  const chunks = splitSliceIntoChunks(slice, 50, 5);
+  const results = [];
+  for (let i = 0; i < chunks.length; i++) {
+    if (onProgress) onProgress(i + 1, chunks.length);
+    try {
+      const items = await findSights(chunks[i], categories, bufferKm);
+      results.push(...items);
+    } catch (e) { /* dieser Abschnitt ist fehlgeschlagen, mit den übrigen weitermachen */ }
+    if (i < chunks.length - 1) await sleep(300);
+  }
+  const seen = new Set();
+  const merged = [];
+  results.sort((a, b) => a.distKm - b.distKm);
+  for (const item of results) {
+    const key = item.name + '|' + item.lat.toFixed(3) + '|' + item.lon.toFixed(3);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+  return merged;
+}
+
 async function findSights(slice, categories, bufferKm) {
   if (!categories.length) return [];
   const [s, w, n, e] = bboxFromSlice(slice, bufferKm);
@@ -832,38 +886,34 @@ async function findSights(slice, categories, bufferKm) {
   return items;
 }
 
-// Sucht Sehenswürdigkeiten mit wachsendem Radius und weicht bei Bedarf auf
-// alle Kategorien aus, damit pro Etappe (fast) immer etwas vorgeschlagen wird.
-async function findBestSights(slice, p) {
-  const steps = radiusSteps(Math.max(p.umwegKm, 15));
+// Sucht Sehenswürdigkeiten entlang der gesamten Etappe (Korridor-Suche, siehe
+// findSightsAlongRoute). Weil dabei schon die komplette Strecke abgedeckt
+// wird (nicht nur ein Punkt), reicht als Fallback ein einziger weiterer
+// Versuch mit allen Kategorien, statt zusätzlich noch den Korridor selbst
+// zu eskalieren – das hält die Anzahl der Anfragen auch im Fehlerfall in
+// Grenzen.
+async function findBestSights(slice, p, onProgress) {
+  const bufferKm = Math.min(Math.max(p.umwegKm, 15), 40);
   const preferredCats = p.sights.length ? p.sights : Object.keys(CATEGORY_TAGS);
   let lastError = null, anySuccess = false;
 
-  for (let i = 0; i < steps.length; i++) {
-    try {
-      const items = await findSights(slice, preferredCats, steps[i]);
-      anySuccess = true;
-      if (items.length) {
-        return { list: items.slice(0, p.spotsProTag), radiusKm: steps[i], expanded: i > 0 || !p.sights.length };
-      }
-    } catch (e) { lastError = e; }
-    if (i < steps.length - 1) await sleep(400);
-  }
+  try {
+    const items = await findSightsAlongRoute(slice, preferredCats, bufferKm, onProgress);
+    anySuccess = true;
+    if (items.length) return { list: items.slice(0, p.spotsProTag), radiusKm: bufferKm, expanded: !p.sights.length };
+  } catch (e) { lastError = e; }
 
-  // Letzter Versuch: alle Kategorien im größten Radius, falls die
-  // gewählten Interessen entlang dieser Etappe gar nichts hergeben.
   if (p.sights.length) {
-    const maxR = steps[steps.length - 1];
     await sleep(400);
     try {
-      const items = await findSights(slice, Object.keys(CATEGORY_TAGS), maxR);
+      const items = await findSightsAlongRoute(slice, Object.keys(CATEGORY_TAGS), bufferKm, onProgress);
       anySuccess = true;
-      if (items.length) return { list: items.slice(0, p.spotsProTag), radiusKm: maxR, expanded: true, allCategories: true };
+      if (items.length) return { list: items.slice(0, p.spotsProTag), radiusKm: bufferKm, expanded: true, allCategories: true };
     } catch (e) { lastError = e; }
   }
 
   if (!anySuccess && lastError) throw lastError;
-  return { list: [], radiusKm: steps[steps.length - 1], expanded: true };
+  return { list: [], radiusKm: bufferKm, expanded: true };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -921,20 +971,20 @@ async function computeTrip() {
       await sleep(300);
       setPlanLoadingText(`Etappe ${day.index} von ${totalLegs}: Stellplatz wird gesucht …`);
       try {
-        if (!day.isLast) {
-          const result = await findBestCampsites(day.to, prefs);
-          day.campsites = result.list;
-          day.campsiteRadiusKm = result.radiusKm;
-          day.campsiteExpanded = result.expanded;
-        } else {
-          day.campsites = [];
-        }
+        // Auch am Ziel (letzter Tag) wird ein Stellplatz für die letzte
+        // Übernachtung der Reise gesucht, nicht nur an den Zwischenstopps.
+        const result = await findBestCampsites(day.to, prefs);
+        day.campsites = result.list;
+        day.campsiteRadiusKm = result.radiusKm;
+        day.campsiteExpanded = result.expanded;
       } catch (e) { day.campsiteError = e.message; }
 
       await sleep(300);
-      setPlanLoadingText(`Etappe ${day.index} von ${totalLegs}: Sehenswürdigkeiten werden gesucht …`);
+      const onSightProgress = (chunk, total) => {
+        setPlanLoadingText(`Etappe ${day.index} von ${totalLegs}: Sehenswürdigkeiten entlang der Strecke werden gesucht (${chunk}/${total}) …`);
+      };
       try {
-        const result = await findBestSights(day.slice, prefs);
+        const result = await findBestSights(day.slice, prefs, onSightProgress);
         day.sights = result.list;
         day.sightRadiusKm = result.radiusKm;
         day.sightExpanded = result.expanded;
@@ -1001,7 +1051,7 @@ function renderResult(startPoint, zielPoint, route, plan) {
     const color = day.isLast ? '#8b1a1a' : '#1a3a5c';
     const best = day.campsites && day.campsites[0];
     const popup = day.isLast
-      ? 'Ziel: ' + escapeHtml(shortName(zielPoint.name))
+      ? 'Ziel: ' + escapeHtml(shortName(zielPoint.name)) + (best ? ' – Stellplatz: ' + escapeHtml(best.tags.name || campsiteLabel(best.tags)) : '')
       : `Tag ${day.index} – Übernachtung${best ? ': ' + escapeHtml(best.tags.name || campsiteLabel(best.tags)) : ' (kein Stellplatz gefunden)'}`;
     L.marker(day.to, { icon: numIcon(label, color) }).addTo(mapLayer).bindPopup(popup);
     (day.sights || []).forEach(s => {
@@ -1016,22 +1066,23 @@ function renderResult(startPoint, zielPoint, route, plan) {
 }
 
 function dayCardHtml(day, zielPoint) {
-  const title = day.isLast ? 'Ankunft am Ziel' : 'Übernachtungs-Vorschläge';
-  let stayHtml;
-  if (day.isLast) {
-    stayHtml = `<div class="spot-item spot-best"><strong>🏁 ${escapeHtml(shortName(zielPoint.name))}</strong><span>Ende der Route</span></div>`;
-  } else if (day.campsiteError) {
-    stayHtml = `<div class="spot-item"><span class="spot-error">Stellplatzsuche fehlgeschlagen: ${escapeHtml(day.campsiteError)}</span></div>`;
+  const title = day.isLast ? 'Ankunft am Ziel & Stellplatz-Vorschläge' : 'Übernachtungs-Vorschläge';
+  const nearLabel = day.isLast ? 'km vom Ziel' : 'km vom Etappenziel';
+  let stayHtml = day.isLast
+    ? `<div class="spot-item spot-best"><strong>🏁 ${escapeHtml(shortName(zielPoint.name))}</strong><span>Ende der Route</span></div>`
+    : '';
+  if (day.campsiteError) {
+    stayHtml += `<div class="spot-item"><span class="spot-error">Stellplatzsuche fehlgeschlagen: ${escapeHtml(day.campsiteError)}</span></div>`;
   } else if (!day.campsites || !day.campsites.length) {
-    stayHtml = `<div class="spot-item"><span class="spot-error">Auch im erweiterten Umkreis von ${day.campsiteRadiusKm} km wurde kein Stellplatz gefunden (OpenStreetMap hat hier offenbar keine Daten). Bitte manuell auf der Karte prüfen.</span></div>`;
+    stayHtml += `<div class="spot-item"><span class="spot-error">Auch im erweiterten Umkreis von ${day.campsiteRadiusKm} km wurde kein Stellplatz gefunden (OpenStreetMap hat hier offenbar keine Daten). Bitte manuell auf der Karte prüfen.</span></div>`;
   } else {
     const hint = day.campsiteExpanded
       ? `<div class="field-hint">ℹ️ Im bevorzugten Umkreis nichts gefunden – Suche auf ${day.campsiteRadiusKm} km erweitert, Vorschläge erfüllen ggf. nicht alle Präferenzen.</div>`
       : '';
-    stayHtml = hint + day.campsites.map((s, i) => `
+    stayHtml += hint + day.campsites.map((s, i) => `
       <div class="spot-item ${i === 0 ? 'spot-best' : ''}">
         <strong>${i === 0 ? '⭐ ' : ''}${escapeHtml(s.tags.name || campsiteLabel(s.tags))}</strong>
-        <span>${campsiteLabel(s.tags)} · ${s.distKm.toFixed(1)} km vom Etappenziel</span><br>
+        <span>${campsiteLabel(s.tags)} · ${s.distKm.toFixed(1)} ${nearLabel}</span><br>
         ${campsiteAmenities(s.tags).map(a => `<span class="sight-chip">${escapeHtml(a)}</span>`).join('')}
         <a class="spot-link" href="https://www.openstreetmap.org/?mlat=${s.lat}&mlon=${s.lon}#map=16/${s.lat}/${s.lon}" target="_blank" rel="noopener">Auf Karte öffnen ↗</a>
       </div>`).join('');
