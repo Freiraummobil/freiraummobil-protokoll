@@ -580,18 +580,40 @@ async function fetchWithTimeout(url, options, timeoutMs) {
   }
 }
 
+// Ein einzelner langsamer Request darf nicht gleich die ganze Suche
+// scheitern lassen: 1 automatischer Wiederholungsversuch nach kurzer Pause,
+// bevor der Fehler nach oben durchgereicht wird.
+async function withRetry(fn, attempts, delayMs) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (i < attempts - 1) await sleep(delayMs);
+    }
+  }
+  throw lastErr;
+}
+
 async function geocode(query) {
-  const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=0&q=' + encodeURIComponent(query);
-  const res = await fetchWithTimeout(url, { headers: { 'Accept': 'application/json' } }, 10000);
-  if (!res.ok) throw new Error('Geokodierung fehlgeschlagen (HTTP ' + res.status + ')');
-  const data = await res.json();
-  if (!data.length) return null;
-  return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: data[0].display_name };
+  return withRetry(async () => {
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=0&q=' + encodeURIComponent(query);
+    const res = await fetchWithTimeout(url, { headers: { 'Accept': 'application/json' } }, 15000);
+    if (!res.ok) throw new Error('Geokodierung fehlgeschlagen (HTTP ' + res.status + ')');
+    const data = await res.json();
+    if (!data.length) return null;
+    return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: data[0].display_name };
+  }, 2, 1200);
 }
 
 async function fetchRoute(a, b) {
+  return withRetry(() => fetchRouteOnce(a, b), 2, 1200);
+}
+
+async function fetchRouteOnce(a, b) {
   const url = `https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=full&geometries=geojson`;
-  const res = await fetchWithTimeout(url, undefined, 15000);
+  const res = await fetchWithTimeout(url, undefined, 20000);
   if (!res.ok) throw new Error('Routenberechnung fehlgeschlagen (HTTP ' + res.status + ')');
   const data = await res.json();
   if (data.code !== 'Ok' || !data.routes || !data.routes.length) throw new Error('Keine Route zwischen Start und Ziel gefunden');
@@ -645,7 +667,7 @@ const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter'
 ];
 const RETRYABLE_STATUS = [429, 502, 503, 504];
-const OVERPASS_TIMEOUT_MS = 8000;
+const OVERPASS_TIMEOUT_MS = 14000;
 // Beide Server werden PARALLEL angefragt (nicht nacheinander) – die schnellste
 // Antwort gewinnt. So bleibt eine einzelne Anfrage im Normalfall so schnell
 // wie der schnellere der beiden Server, und im Fehlerfall (z.B. hängender
