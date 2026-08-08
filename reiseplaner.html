@@ -618,18 +618,55 @@ function buildDayPlan(route, totalDays, tagesKmMax) {
   return { totalKm, totalDays, warning, days };
 }
 
+// ── Overpass-Zugriff mit Ausweich-Servern & Retry ──
+// Große "around"-Umkreis-Abfragen sind für den kostenlosen Overpass-Dienst
+// teuer und laufen bei viel Last leicht in ein HTTP 504 (Gateway Timeout).
+// Deshalb: Bounding-Box statt Umkreis wo möglich, plus Retry über mehrere
+// Server-Spiegel bei 502/503/504/429.
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter'
+];
+const RETRYABLE_STATUS = [429, 502, 503, 504];
+async function overpassFetch(query) {
+  const maxAttempts = OVERPASS_ENDPOINTS.length * 2;
+  let lastErr;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const endpoint = OVERPASS_ENDPOINTS[attempt % OVERPASS_ENDPOINTS.length];
+    try {
+      const res = await fetch(endpoint, { method: 'POST', body: query });
+      if (res.ok) return await res.json();
+      if (!RETRYABLE_STATUS.includes(res.status)) {
+        throw new Error('Kartendienst-Anfrage fehlgeschlagen (HTTP ' + res.status + ')');
+      }
+      lastErr = new Error('Kartendienst überlastet (HTTP ' + res.status + ')');
+    } catch (e) {
+      lastErr = e;
+    }
+    if (attempt < maxAttempts - 1) await sleep(700 * (attempt + 1));
+  }
+  throw lastErr || new Error('Kartendienst-Anfrage fehlgeschlagen');
+}
+
+function bboxFromPoint(coord, radiusKm) {
+  const dLat = radiusKm / 111;
+  const dLon = radiusKm / (111 * Math.max(Math.cos(coord[0] * Math.PI / 180), 0.15));
+  return [coord[0] - dLat, coord[1] - dLon, coord[0] + dLat, coord[1] + dLon];
+}
+
 // ── Stellplätze (Overpass) ──
 async function findCampsites(coord, radiusKm) {
-  const r = Math.round(radiusKm * 1000);
-  const q = `[out:json][timeout:25];(node["tourism"="camp_site"](around:${r},${coord[0]},${coord[1]});node["tourism"="caravan_site"](around:${r},${coord[0]},${coord[1]});way["tourism"="camp_site"](around:${r},${coord[0]},${coord[1]});way["tourism"="caravan_site"](around:${r},${coord[0]},${coord[1]}););out center tags 40;`;
-  const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: q });
-  if (!res.ok) throw new Error('Stellplatzsuche fehlgeschlagen (HTTP ' + res.status + ')');
-  const data = await res.json();
+  const [s, w, n, e] = bboxFromPoint(coord, radiusKm);
+  const bboxStr = `${s},${w},${n},${e}`;
+  const q = `[out:json][timeout:30];(node["tourism"="camp_site"](${bboxStr});node["tourism"="caravan_site"](${bboxStr});way["tourism"="camp_site"](${bboxStr});way["tourism"="caravan_site"](${bboxStr}););out center tags 60;`;
+  const data = await overpassFetch(q);
   return data.elements.map(el => {
     const lat = el.lat != null ? el.lat : (el.center && el.center.lat);
     const lon = el.lon != null ? el.lon : (el.center && el.center.lon);
     if (lat == null || lon == null) return null;
-    return { lat, lon, tags: el.tags || {}, distKm: haversineKm(coord, [lat, lon]) };
+    const distKm = haversineKm(coord, [lat, lon]);
+    if (distKm > radiusKm) return null; // Bounding-Box ist eckig, auf echten Umkreis filtern
+    return { lat, lon, tags: el.tags || {}, distKm };
   }).filter(Boolean);
 }
 
@@ -651,21 +688,26 @@ function scoreCampsite(site, p) {
 // mindestens ein Ergebnis erscheint, auch wenn dafür Präferenzen nicht mehr
 // zu 100% passen.
 function radiusSteps(baseKm) {
-  const raw = [baseKm, baseKm * 3, baseKm * 8, baseKm * 20];
-  const capped = raw.map(v => Math.min(Math.round(v), 300));
+  const raw = [baseKm, baseKm * 2, baseKm * 5, baseKm * 10];
+  const capped = raw.map(v => Math.min(Math.round(v), 150));
   return Array.from(new Set(capped));
 }
 async function findBestCampsites(coord, p) {
   const steps = radiusSteps(Math.max(p.umwegKm, 15));
+  let lastError = null, anySuccess = false;
   for (let i = 0; i < steps.length; i++) {
-    const sites = await findCampsites(coord, steps[i]);
-    if (sites.length) {
-      sites.forEach(s => s.score = scoreCampsite(s, p));
-      sites.sort((a, b) => b.score - a.score);
-      return { list: sites.slice(0, 4), radiusKm: steps[i], expanded: i > 0 };
-    }
+    try {
+      const sites = await findCampsites(coord, steps[i]);
+      anySuccess = true;
+      if (sites.length) {
+        sites.forEach(s => s.score = scoreCampsite(s, p));
+        sites.sort((a, b) => b.score - a.score);
+        return { list: sites.slice(0, 4), radiusKm: steps[i], expanded: i > 0 };
+      }
+    } catch (e) { lastError = e; }
     if (i < steps.length - 1) await sleep(400);
   }
+  if (!anySuccess && lastError) throw lastError;
   return { list: [], radiusKm: steps[steps.length - 1], expanded: true };
 }
 function campsiteLabel(t) { return t.tourism === 'caravan_site' ? 'Wohnmobil-/Caravan-Stellplatz' : 'Campingplatz'; }
@@ -726,10 +768,8 @@ async function findSights(slice, categories, bufferKm) {
     });
   });
   if (!filters.length) return [];
-  const q = `[out:json][timeout:25];(${filters.join('')});out center tags 80;`;
-  const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: q });
-  if (!res.ok) throw new Error('Spot-Suche fehlgeschlagen (HTTP ' + res.status + ')');
-  const data = await res.json();
+  const q = `[out:json][timeout:30];(${filters.join('')});out center tags 80;`;
+  const data = await overpassFetch(q);
   const step = Math.max(Math.floor(slice.length / 40), 1);
   const sample = slice.filter((_, i) => i % step === 0);
   const seen = new Set();
@@ -756,12 +796,16 @@ async function findSights(slice, categories, bufferKm) {
 async function findBestSights(slice, p) {
   const steps = radiusSteps(Math.max(p.umwegKm, 15));
   const preferredCats = p.sights.length ? p.sights : Object.keys(CATEGORY_TAGS);
+  let lastError = null, anySuccess = false;
 
   for (let i = 0; i < steps.length; i++) {
-    const items = await findSights(slice, preferredCats, steps[i]);
-    if (items.length) {
-      return { list: items.slice(0, p.spotsProTag), radiusKm: steps[i], expanded: i > 0 || !p.sights.length };
-    }
+    try {
+      const items = await findSights(slice, preferredCats, steps[i]);
+      anySuccess = true;
+      if (items.length) {
+        return { list: items.slice(0, p.spotsProTag), radiusKm: steps[i], expanded: i > 0 || !p.sights.length };
+      }
+    } catch (e) { lastError = e; }
     if (i < steps.length - 1) await sleep(400);
   }
 
@@ -770,10 +814,14 @@ async function findBestSights(slice, p) {
   if (p.sights.length) {
     const maxR = steps[steps.length - 1];
     await sleep(400);
-    const items = await findSights(slice, Object.keys(CATEGORY_TAGS), maxR);
-    if (items.length) return { list: items.slice(0, p.spotsProTag), radiusKm: maxR, expanded: true, allCategories: true };
+    try {
+      const items = await findSights(slice, Object.keys(CATEGORY_TAGS), maxR);
+      anySuccess = true;
+      if (items.length) return { list: items.slice(0, p.spotsProTag), radiusKm: maxR, expanded: true, allCategories: true };
+    } catch (e) { lastError = e; }
   }
 
+  if (!anySuccess && lastError) throw lastError;
   return { list: [], radiusKm: steps[steps.length - 1], expanded: true };
 }
 
