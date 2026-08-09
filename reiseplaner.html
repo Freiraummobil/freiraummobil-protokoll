@@ -1020,6 +1020,16 @@ function projectOntoRoute(slice, cum, lat, lon) {
 // scheitern.
 const BUCKET_BUFFER_KM = 60;
 
+// Die KI kennt nur die groben GPS-Koordinaten von Etappenanfang/-ende, nicht
+// den genauen (oft kurvigen) Streckenverlauf – ein Vorschlag, der 20-30 km
+// abseits der Luftlinie liegt, kann trotzdem sinnvoll "an der Strecke"
+// liegen. Mit der knappen "Akzeptierter Umweg für Spots"-Präferenz (Default
+// 15 km) als Prüfradius wurden dadurch fast alle KI-Vorschläge verworfen,
+// obwohl die KI-Anfrage selbst erfolgreich war – wirkte wie "KI liefert
+// nichts". Deshalb wie bei der Wunschliste ein großzügigerer, von dieser
+// Präferenz unabhängiger Radius.
+const AI_BUFFER_KM = 60;
+
 function bucketItemsForSlice(slice) {
   if (!bucketlist.length) return [];
   const cum = cumulativeKm(slice);
@@ -1061,7 +1071,7 @@ function buildAiPrompt(from, to, categories, bufferKm, maxCount) {
   return `Ich reise mit einem Wohnmobil entlang der Fahrstrecke (nicht Luftlinie) von den GPS-Koordinaten ${from[0].toFixed(4)},${from[1].toFixed(4)} zu ${to[0].toFixed(4)},${to[1].toFixed(4)}. ` +
     `Nenne mir bis zu ${maxCount} reale, existierende Sehenswürdigkeiten oder Orte, die höchstens ${bufferKm} km von dieser Fahrstrecke entfernt liegen.${catText} ` +
     `Antworte AUSSCHLIESSLICH mit kompaktem JSON in exakt diesem Format, ohne Markdown-Codefences, ohne zusätzlichen Text: ` +
-    `{"orte":[{"name":"Offizieller, eindeutig auffindbarer Name","beschreibung":"Ein bis zwei Sätze auf Deutsch"}]}`;
+    `{"orte":[{"name":"Vollständiger, eindeutig auffindbarer Name inkl. Ort/Region (z. B. 'Burg Eltz, Wierschem' statt nur 'Burg Eltz'), damit er sich zweifelsfrei per Kartensuche finden lässt","beschreibung":"Ein bis zwei Sätze auf Deutsch"}]}`;
 }
 
 async function callAiProvider(settings, prompt) {
@@ -1103,7 +1113,7 @@ function parseAiPlaces(raw) {
 }
 
 async function findAiSights(slice, settings, categories, bufferKm) {
-  if (!settings.enabled || !settings.apiKey) return [];
+  if (!settings.enabled || !settings.apiKey) return { items: [], proposedCount: 0 };
   const cum = cumulativeKm(slice);
   const prompt = buildAiPrompt(slice[0], slice[slice.length - 1], categories, bufferKm, 8);
   const raw = await callAiProvider(settings, prompt);
@@ -1123,7 +1133,7 @@ async function findAiSights(slice, settings, categories, bufferKm) {
       link: `https://www.openstreetmap.org/?mlat=${found.lat}&mlon=${found.lon}#map=15/${found.lat}/${found.lon}`
     });
   }
-  return results;
+  return { items: results, proposedCount: places.length };
 }
 
 // Sehenswürdigkeiten kommen ausschließlich aus zwei Quellen: der
@@ -1134,7 +1144,6 @@ async function findAiSights(slice, settings, categories, bufferKm) {
 // dann ein echter Fehler, wenn auch die Wunschliste für diese Etappe leer
 // ausgeht – sonst zeigen wir einfach die Wunschliste allein.
 async function findBestSights(slice, p) {
-  const bufferKm = Math.min(Math.max(p.umwegKm, 15), 40);
   const preferredCats = p.sights.length ? p.sights : SIGHT_CATEGORY_KEYS;
 
   const bucketMatches = bucketItemsForSlice(slice);
@@ -1144,7 +1153,7 @@ async function findBestSights(slice, p) {
   // Finale Liste wird in Fahrtrichtung (routeKm) sortiert, damit Tageskarte
   // und Google-Maps-Link die Sehenswürdigkeiten in der Reihenfolge zeigen,
   // in der man ihnen auf der Etappe tatsächlich begegnet.
-  const finalize = aiItems => {
+  const finalize = (aiItems, aiNote) => {
     const seen = new Set(bucketKeys);
     const filteredAi = aiItems.filter(it => {
       const key = it.name.trim().toLowerCase();
@@ -1153,7 +1162,7 @@ async function findBestSights(slice, p) {
       return true;
     });
     const list = [...bucketMatches, ...filteredAi.slice(0, remainingSlots)].sort((a, b) => a.routeKm - b.routeKm);
-    return { list, radiusKm: bufferKm };
+    return { list, radiusKm: AI_BUFFER_KM, aiNote };
   };
 
   if (remainingSlots === 0 || !aiSettings.enabled || !aiSettings.apiKey) {
@@ -1161,11 +1170,17 @@ async function findBestSights(slice, p) {
   }
 
   try {
-    const aiItems = await findAiSights(slice, aiSettings, preferredCats, bufferKm);
-    return finalize(aiItems);
+    const { items: aiItems, proposedCount } = await findAiSights(slice, aiSettings, preferredCats, AI_BUFFER_KM);
+    let aiNote;
+    if (proposedCount === 0) {
+      aiNote = 'Die KI hat für diese Etappe keine Vorschläge geliefert.';
+    } else if (aiItems.length === 0) {
+      aiNote = `Die KI hat ${proposedCount} Vorschlag/Vorschläge geliefert, aber keiner ließ sich eindeutig finden oder lag nachweislich an der Strecke.`;
+    }
+    return finalize(aiItems, aiNote);
   } catch (e) {
     if (!bucketMatches.length) throw e;
-    return finalize([]);
+    return { ...finalize([]), aiError: e.message };
   }
 }
 
@@ -1191,6 +1206,28 @@ function showResultError(msg) {
 function setPlanLoadingText(msg) {
   const el = document.getElementById('planLoadingText');
   if (el) el.textContent = msg;
+}
+
+// Weil sowohl die Wunschliste (BUCKET_BUFFER_KM) als auch die KI-Suche
+// (AI_BUFFER_KM) mit einem großzügigen Korridor von 60 km arbeiten, kann
+// dieselbe Sehenswürdigkeit nahe einer Etappengrenze in den Korridor von
+// ZWEI aufeinanderfolgenden Etappen fallen und dadurch doppelt auftauchen.
+// Sie soll aber nur auf der Etappe erscheinen, der sie tatsächlich am
+// nächsten liegt (kleinster distKm) – auf allen anderen Etappen wird sie
+// wieder entfernt.
+function dedupeSightsAcrossDays(days) {
+  const bestByKey = new Map();
+  days.forEach((day, dayIdx) => {
+    (day.sights || []).forEach(s => {
+      const key = s.name.trim().toLowerCase();
+      const current = bestByKey.get(key);
+      if (!current || s.distKm < current.distKm) bestByKey.set(key, { dayIdx, distKm: s.distKm });
+    });
+  });
+  days.forEach((day, dayIdx) => {
+    if (!day.sights) return;
+    day.sights = day.sights.filter(s => bestByKey.get(s.name.trim().toLowerCase()).dayIdx === dayIdx);
+  });
 }
 
 async function computeTrip() {
@@ -1239,9 +1276,12 @@ async function computeTrip() {
         const result = await findBestSights(day.slice, prefs);
         day.sights = result.list;
         day.sightRadiusKm = result.radiusKm;
+        day.aiNote = result.aiNote || null;
+        day.aiError = result.aiError || null;
       } catch (e) { day.sightError = e.message; }
     }
 
+    dedupeSightsAcrossDays(plan.days);
     renderResult(startPoint, zielPoint, route, plan);
   } catch (err) {
     console.error(err);
@@ -1344,12 +1384,15 @@ function dayCardHtml(day, zielPoint) {
   }
 
   let sightsHtml;
+  const aiHint = day.aiError
+    ? `<div class="field-hint">${icon('warning', 'icon-hint')} KI-Vorschläge fehlgeschlagen: ${escapeHtml(day.aiError)}</div>`
+    : (day.aiNote ? `<div class="field-hint">${icon('info', 'icon-hint')} ${escapeHtml(day.aiNote)}</div>` : '');
   if (day.sightError) {
     sightsHtml = `<span class="spot-error">Spot-Suche fehlgeschlagen: ${escapeHtml(day.sightError)}</span>`;
   } else if (!day.sights || !day.sights.length) {
-    sightsHtml = `<span class="text-muted">${aiSettings.enabled ? 'Weder in der Wunschliste noch über die KI-Vorschläge wurde etwas für diese Etappe gefunden.' : 'Keine Sehenswürdigkeiten – füge Orte zur Wunschliste hinzu oder aktiviere KI-Vorschläge in den Präferenzen.'}</span>`;
+    sightsHtml = aiHint + `<span class="text-muted">${aiSettings.enabled ? 'Weder in der Wunschliste noch über die KI-Vorschläge wurde etwas für diese Etappe gefunden.' : 'Keine Sehenswürdigkeiten – füge Orte zur Wunschliste hinzu oder aktiviere KI-Vorschläge in den Präferenzen.'}</span>`;
   } else {
-    sightsHtml = day.sights.map((s, i) => `
+    sightsHtml = aiHint + day.sights.map((s, i) => `
       <div class="sight-item${s.bucket ? ' sight-item-bucket' : ''}" id="sight-${day.index}-${i}">
         <strong>${icon(s.bucket ? 'star' : 'pin')}${escapeHtml(s.name)}</strong>
         <span class="sight-meta">${escapeHtml(s.category)} · ${s.distKm.toFixed(1)} km von der Route</span>
