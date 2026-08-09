@@ -11,9 +11,9 @@
 <script src="lib/leaflet/leaflet.js"></script>
 <style>
 :root {
-  --accent: #4b5320;
-  --accent-dark: #363b17;
-  --accent-light: #eaecdd;
+  --accent: #458b00;
+  --accent-dark: #326400;
+  --accent-light: #e5ecdc;
   --ink: #251e18;
   --ink-soft: #82766a;
   --green: #2f7a4d;
@@ -106,8 +106,8 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
   padding: 11px 13px; margin-bottom: 12px; display: flex; gap: 9px; align-items: flex-start;
 }
 .tip .icon { color: var(--accent-dark); margin-top: 1px; }
-.tip p { font-size: 12px; color: #3a4118; line-height: 1.5; }
-.tip strong { font-weight: 700; display: block; margin-bottom: 2px; color: #3a4118; }
+.tip p { font-size: 12px; color: #326400; line-height: 1.5; }
+.tip strong { font-weight: 700; display: block; margin-bottom: 2px; color: #326400; }
 .tip.warn { background: var(--amber-bg); }
 .tip.warn .icon { color: var(--amber); }
 .tip.warn p, .tip.warn strong { color: var(--amber); }
@@ -200,24 +200,24 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .spot-link .icon { width: 12px; height: 12px; }
 .day-maps-link {
   display: inline-flex; align-items: center; gap: 6px; margin: 10px 0 2px;
-  background: var(--accent-light); color: #3a4118; text-decoration: none;
+  background: var(--accent-light); color: #326400; text-decoration: none;
   font-size: 12px; font-weight: 700; padding: 7px 12px; border-radius: var(--radius-pill);
 }
-.day-maps-link .icon { color: #3a4118; }
+.day-maps-link .icon { color: #326400; }
 .day-maps-link .icon:last-child { width: 12px; height: 12px; }
 .spot-error { color: var(--red); font-size: 12.5px; }
 .text-muted { color: var(--ink-soft); font-size: 12.5px; }
 
 .sights-wrap { display: flex; flex-direction: column; gap: 6px; }
 .sight-chip {
-  display: inline-flex; align-items: center; gap: 3px; background: var(--accent-light); color: #3a4118;
+  display: inline-flex; align-items: center; gap: 3px; background: var(--accent-light); color: #326400;
   padding: 4px 9px; border-radius: var(--radius-pill); font-size: 11.5px; font-weight: 600;
 }
-.sight-chip .icon { color: #3a4118; }
+.sight-chip .icon { color: #326400; }
 .sight-chip em { font-style: normal; }
 
 .sight-item { background: var(--accent-light); border-radius: var(--radius-sm); padding: 11px; }
-.sight-item strong { display: flex; align-items: center; gap: 5px; font-size: 13px; margin-bottom: 2px; color: #3a4118; }
+.sight-item strong { display: flex; align-items: center; gap: 5px; font-size: 13px; margin-bottom: 2px; color: #326400; }
 .sight-item strong .icon { color: var(--accent-dark); }
 .sight-item .sight-meta { font-size: 11.5px; color: #5c6b2f; font-weight: 600; }
 .sight-item .sight-desc { font-size: 12px; color: var(--ink); opacity: 0.8; line-height: 1.4; margin-top: 6px; }
@@ -1256,13 +1256,13 @@ function renderResult(startPoint, zielPoint, route, plan) {
   const m = ensureMap();
   if (mapLayer) mapLayer.remove();
   mapLayer = L.layerGroup().addTo(m);
-  const line = L.polyline(route.coords, { color: '#4b5320', weight: 4 }).addTo(mapLayer);
+  const line = L.polyline(route.coords, { color: '#458b00', weight: 4 }).addTo(mapLayer);
   L.marker(route.coords[0], { icon: numIcon('S', '#2f7a4d') }).addTo(mapLayer)
     .bindPopup('Start: ' + escapeHtml(shortName(startPoint.name)));
 
   plan.days.forEach(day => {
     const label = day.isLast ? icon('flag') : String(day.index);
-    const color = day.isLast ? '#4b5320' : '#251e18';
+    const color = day.isLast ? '#458b00' : '#251e18';
     const best = day.campsites && day.campsites[0];
     const popup = day.isLast
       ? 'Ziel: ' + escapeHtml(shortName(zielPoint.name)) + (best ? ' – Stellplatz: ' + escapeHtml(best.tags.name || campsiteLabel(best.tags)) : '')
@@ -1271,7 +1271,7 @@ function renderResult(startPoint, zielPoint, route, plan) {
     (day.sights || []).forEach(s => {
       const link = s.link || `https://www.openstreetmap.org/?mlat=${s.lat}&mlon=${s.lon}#map=17/${s.lat}/${s.lon}`;
       const desc = s.description ? `<br>${escapeHtml(s.description)}` : '';
-      L.circleMarker([s.lat, s.lon], { radius: 5, color: '#363b17', fillColor: '#eaecdd', fillOpacity: 0.9, weight: 2 })
+      L.circleMarker([s.lat, s.lon], { radius: 5, color: '#326400', fillColor: '#e5ecdc', fillOpacity: 0.9, weight: 2 })
         .addTo(mapLayer).bindPopup(
           `<strong>${escapeHtml(s.name)}</strong> (${escapeHtml(s.category)})${desc}<br>` +
           `<a href="${escapeHtml(link)}" target="_blank" rel="noopener">Mehr erfahren ↗</a>`
