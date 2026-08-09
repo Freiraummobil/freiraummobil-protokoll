@@ -372,7 +372,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
     <div class="card">
       <div class="card-title"><span class="ci" data-icon="star"></span>KI-Vorschläge (optional)</div>
-      <div class="field-hint">Nutzt eine KI mit deinem eigenen API-Key als zusätzliche Quelle für Sehenswürdigkeiten entlang der Etappe – oft ausführlicher als OSM/Wikipedia. Der Key wird nur lokal auf diesem Gerät gespeichert und ausschließlich direkt an den gewählten Anbieter gesendet, nie an uns oder Dritte. Kosten fallen über dein eigenes Konto beim Anbieter an – bitte den Key nirgendwo teilen.</div>
+      <div class="field-hint">Nutzt eine KI mit deinem eigenen API-Key, um Sehenswürdigkeiten entlang der Etappe vorzuschlagen und zu beschreiben – berücksichtigt dabei deine gewählten Interessen. Neben der Wunschliste die einzige Quelle für Sehenswürdigkeiten in dieser App. Der Key wird nur lokal auf diesem Gerät gespeichert und ausschließlich direkt an den gewählten Anbieter gesendet, nie an uns oder Dritte. Kosten fallen über dein eigenes Konto beim Anbieter an – bitte den Key nirgendwo teilen.</div>
       <div class="field checkbox-field"><label><input type="checkbox" id="ai-enabled"> KI-Vorschläge aktivieren</label></div>
       <div class="field"><label>Anbieter</label>
         <select id="ai-provider">
@@ -394,7 +394,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
   <div class="section" id="sec2">
     <div class="sec-header">
       <h2>Wunschliste</h2>
-      <p>Sehenswürdigkeiten, die du unbedingt sehen willst – werden bei der Etappenplanung bevorzugt vor den automatischen Vorschlägen aus OSM/Wikipedia eingebaut.</p>
+      <p>Sehenswürdigkeiten, die du unbedingt sehen willst – werden bei der Etappenplanung bevorzugt vor den KI-Vorschlägen eingebaut.</p>
     </div>
 
     <div class="card">
@@ -469,7 +469,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
       <div id="dayList"></div>
     </div>
 
-    <div class="footnote">Kartendaten &amp; Ortssuche: © OpenStreetMap-Mitwirkende · Routing: OSRM · Stellplatz-/Spot-Daten: Overpass API. Alle Angaben ohne Gewähr – bitte Vorschläge vor Ort prüfen (Höhe, Gewicht, Öffnungszeiten).</div>
+    <div class="footnote">Kartendaten &amp; Ortssuche: © OpenStreetMap-Mitwirkende · Routing: OSRM · Stellplatz-Daten: Overpass API · Sehenswürdigkeiten: eigene Wunschliste &amp; optionale KI-Vorschläge. Alle Angaben ohne Gewähr – bitte Vorschläge vor Ort prüfen (Höhe, Gewicht, Öffnungszeiten).</div>
 
     <div class="btn-bar"><button class="btn-prev" onclick="goTo(3)">← Zurück zur Route</button></div>
   </div>
@@ -511,9 +511,11 @@ const CHIP_GROUPS = {
     { v: 'kultur', l: 'Kultur & Geschichte' },
     { v: 'strand', l: 'Strände & Seen' },
     { v: 'staedte', l: 'Städte & Attraktionen' },
-    { v: 'aktivitaet', l: 'Aktivität & Freizeit' }
+    { v: 'aktivitaet', l: 'Aktivität & Freizeit' },
+    { v: 'wanderwege', l: 'Wanderwege' }
   ]}
 };
+const SIGHT_CATEGORY_KEYS = CHIP_GROUPS.sights.options.map(o => o.v);
 
 let prefs = {
   stellplatzTyp: [], ausstattung: [], sights: [],
@@ -611,7 +613,7 @@ function loadTripInputs() {
 // ── Wunschliste ──
 // Frei vom Nutzer gepflegte Liste "unbedingt sehen wollen"-Sehenswürdigkeiten
 // (siehe BUCKET_BUFFER_KM & bucketItemsForSlice weiter unten): wird bei der
-// Etappenplanung vor den automatischen OSM/Wikipedia-Vorschlägen berücksichtigt.
+// Etappenplanung vor den KI-Vorschlägen berücksichtigt.
 let bucketlist = [];
 
 function saveBucketlist() {
@@ -720,7 +722,7 @@ function shortName(displayName) { return (displayName || '').split(',').slice(0,
 
 // Baut einen Google-Maps-Routenlink über die offizielle URL-API (kein API-Key
 // nötig). Die Zwischenstopps kommen bereits in Fahrtrichtung sortiert an
-// (siehe routeKm in findSightsAlongRoute), daher OHNE "optimize:true" –
+// (siehe routeKm in findBestSights), daher OHNE "optimize:true" –
 // das würde Google erlauben, die Reihenfolge wieder umzuwerfen (z. B. den
 // zielnächsten Stopp zuerst anzufahren), obwohl unsere Reihenfolge bereits
 // der tatsächlichen Streckenführung entspricht.
@@ -988,56 +990,10 @@ function campsiteAmenities(t) {
   return list;
 }
 
-// ── Sehenswürdigkeiten (Overpass) ──
-const CATEGORY_TAGS = {
-  natur: [['natural', 'waterfall'], ['natural', 'peak'], ['leisure', 'nature_reserve'], ['natural', 'cave_entrance'], ['natural', 'glacier'], ['boundary', 'national_park']],
-  aussicht: [['tourism', 'viewpoint']],
-  kultur: [['historic', 'castle'], ['historic', 'monument'], ['historic', 'ruins'], ['historic', 'memorial'], ['tourism', 'museum'], ['tourism', 'artwork'], ['historic', 'archaeological_site'], ['historic', 'fort'], ['tourism', 'gallery']],
-  strand: [['natural', 'beach'], ['leisure', 'marina']],
-  staedte: [['tourism', 'attraction']],
-  aktivitaet: [['leisure', 'water_park'], ['tourism', 'theme_park'], ['leisure', 'park'], ['tourism', 'zoo'], ['tourism', 'aquarium'], ['leisure', 'garden']]
-};
-function categoryLabel(tags) {
-  if (tags.natural === 'waterfall') return 'Wasserfall';
-  if (tags.natural === 'peak') return 'Gipfel';
-  if (tags.natural === 'beach') return 'Strand';
-  if (tags.natural === 'cave_entrance') return 'Höhle';
-  if (tags.natural === 'glacier') return 'Gletscher';
-  if (tags.boundary === 'national_park') return 'Nationalpark';
-  if (tags.leisure === 'nature_reserve') return 'Naturschutzgebiet';
-  if (tags.leisure === 'marina') return 'Yachthafen';
-  if (tags.leisure === 'garden') return 'Garten';
-  if (tags.tourism === 'viewpoint') return 'Aussichtspunkt';
-  if (tags.historic === 'archaeological_site') return 'Archäologische Stätte';
-  if (tags.historic === 'fort') return 'Festung';
-  if (tags.historic) return 'Historisch';
-  if (tags.tourism === 'museum') return 'Museum';
-  if (tags.tourism === 'gallery') return 'Galerie';
-  if (tags.tourism === 'artwork') return 'Kunstwerk';
-  if (tags.tourism === 'zoo') return 'Zoo';
-  if (tags.tourism === 'aquarium') return 'Aquarium';
-  if (tags.leisure === 'water_park') return 'Wasserpark';
-  if (tags.tourism === 'theme_park') return 'Freizeitpark';
-  if (tags.leisure === 'park') return 'Park';
-  return 'Sehenswürdigkeit';
-}
-function bboxFromSlice(slice, bufferKm) {
-  let south = 90, north = -90, west = 180, east = -180;
-  slice.forEach(([lat, lon]) => {
-    south = Math.min(south, lat); north = Math.max(north, lat);
-    west = Math.min(west, lon); east = Math.max(east, lon);
-  });
-  const dLat = bufferKm / 111;
-  const midLat = (south + north) / 2;
-  const dLon = bufferKm / (111 * Math.max(Math.cos(midLat * Math.PI / 180), 0.15));
-  return [south - dLat, west - dLon, north + dLat, east + dLon];
-}
-
-// Eine einzelne Overpass-Anfrage über die komplette (oft hunderte km lange)
-// Tagesetappe ist zu groß/komplex und läuft serverseitig in ein Timeout,
-// das dann fälschlich als "nichts gefunden" ankommt. Deshalb wird die
-// Etappe in kurze Abschnitte zerlegt, sodass jede Anfrage klein & schnell
-// bleibt, aber zusammen die GANZE Strecke abgedeckt wird.
+// ── Sehenswürdigkeiten: Wunschliste (siehe unten) + KI-Vorschläge sind die
+// einzigen beiden Quellen (OSM/Wikipedia/Wikivoyage wurden bewusst entfernt,
+// siehe Historie) – cumulativeKm/projectOntoRoute werden von beiden genutzt,
+// um Treffer geometrisch gegen die tatsächliche Etappen-Linie zu prüfen.
 function cumulativeKm(slice) {
   const cum = [0];
   for (let i = 1; i < slice.length; i++) cum.push(cum[i - 1] + haversineKm(slice[i - 1], slice[i]));
@@ -1084,8 +1040,10 @@ function bucketItemsForSlice(slice) {
   return matches;
 }
 
-// Optionale vierte Quelle für Sehenswürdigkeiten: eine KI (mit vom Nutzer
-// selbst hinterlegtem API-Key) wird nach Orten entlang der Etappe gefragt.
+// Optionale zweite Quelle für Sehenswürdigkeiten (neben der Wunschliste):
+// eine KI (mit vom Nutzer selbst hinterlegtem API-Key) wird nach Orten
+// entlang der Etappe gefragt, unter Berücksichtigung der in den
+// Präferenzen gewählten Interessen (siehe sightCategoryLabels/buildAiPrompt).
 // Weil KI-Antworten Koordinaten erfinden können, liefert die KI bewusst NUR
 // Namen + Kurzbeschreibung; die tatsächliche Position wird wie bei der
 // Wunschliste über die normale Geokodierung (Nominatim) ermittelt und dann
@@ -1168,200 +1126,17 @@ async function findAiSights(slice, settings, categories, bufferKm) {
   return results;
 }
 
-function splitSliceIntoChunks(slice, targetChunkKm, maxChunks) {
-  if (slice.length < 2) return [slice];
-  const cum = cumulativeKm(slice);
-  const totalKm = cum[cum.length - 1];
-  const chunkCount = Math.min(Math.max(Math.ceil(totalKm / targetChunkKm), 1), maxChunks);
-  const chunkKm = totalKm / chunkCount;
-  const chunks = [];
-  let prevIdx = 0;
-  for (let c = 1; c <= chunkCount; c++) {
-    const targetKm = c === chunkCount ? totalKm : c * chunkKm;
-    let idx = prevIdx;
-    while (idx < cum.length - 1 && cum[idx] < targetKm) idx++;
-    if (idx <= prevIdx) idx = Math.min(prevIdx + 1, slice.length - 1);
-    chunks.push(slice.slice(prevIdx, idx + 1));
-    prevIdx = idx;
-  }
-  return chunks;
-}
-
-// Zweite, von Overpass komplett unabhängige Datenquelle: Wikipedias
-// Geosuche (anderer Anbieter, andere Infrastruktur, kein API-Key nötig,
-// sehr zuverlässig). Läuft parallel zur OSM-Suche mit, damit ein Ausfall
-// oder Rate-Limit von Overpass nicht automatisch zu "nichts gefunden" führt.
-// gsradius ist von Wikipedia auf max. 10 km begrenzt.
-async function findWikipediaSights(coord, bufferKm) {
-  const radiusM = Math.min(Math.max(Math.round(bufferKm * 1000), 1000), 10000);
-  const url = `https://en.wikipedia.org/w/api.php?action=query&generator=geosearch&ggscoord=${coord[0]}|${coord[1]}&ggsradius=${radiusM}&ggslimit=15&prop=extracts|coordinates|info&exintro=1&explaintext=1&exsentences=2&inprop=url&format=json&origin=*`;
-  const res = await fetchWithTimeout(url, undefined, 10000);
-  if (!res.ok) throw new Error('Wikipedia-Suche fehlgeschlagen (HTTP ' + res.status + ')');
-  const data = await res.json();
-  const pages = (data.query && data.query.pages) || {};
-  return Object.values(pages)
-    .filter(p => p.coordinates && p.coordinates.length)
-    .map(p => {
-      const c = p.coordinates[0];
-      return {
-        name: p.title,
-        lat: c.lat,
-        lon: c.lon,
-        category: 'Wikipedia',
-        distKm: haversineKm(coord, [c.lat, c.lon]),
-        description: (p.extract || '').trim() || null,
-        link: p.fullurl || `https://en.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g, '_'))}`
-      };
-    });
-}
-
-// Dritte Datenquelle: Wikivoyages Geosuche – gleiche MediaWiki-API wie
-// Wikipedia, kein API-Key, aber reisefokussierte Inhalte (was gibt's zu
-// sehen/tun). Deckt oft eher Orte/Stadtteile als einzelne Landmarken ab,
-// ergänzt die anderen Quellen damit sinnvoll statt sie zu duplizieren.
-async function findWikivoyageSights(coord, bufferKm) {
-  const radiusM = Math.min(Math.max(Math.round(bufferKm * 1000), 1000), 10000);
-  const url = `https://en.wikivoyage.org/w/api.php?action=query&generator=geosearch&ggscoord=${coord[0]}|${coord[1]}&ggsradius=${radiusM}&ggslimit=15&prop=extracts|coordinates|info&exintro=1&explaintext=1&exsentences=2&inprop=url&format=json&origin=*`;
-  const res = await fetchWithTimeout(url, undefined, 10000);
-  if (!res.ok) throw new Error('Wikivoyage-Suche fehlgeschlagen (HTTP ' + res.status + ')');
-  const data = await res.json();
-  const pages = (data.query && data.query.pages) || {};
-  return Object.values(pages)
-    .filter(p => p.coordinates && p.coordinates.length)
-    .map(p => {
-      const c = p.coordinates[0];
-      return {
-        name: p.title,
-        lat: c.lat,
-        lon: c.lon,
-        category: 'Wikivoyage',
-        distKm: haversineKm(coord, [c.lat, c.lon]),
-        description: (p.extract || '').trim() || null,
-        link: p.fullurl || `https://en.wikivoyage.org/wiki/${encodeURIComponent(p.title.replace(/ /g, '_'))}`
-      };
-    });
-}
-
-// Sucht Sehenswürdigkeiten entlang der KOMPLETTEN Etappe, nicht nur am
-// Etappenziel: die Strecke wird in Abschnitte zerlegt und ALLE Abschnitte
-// PARALLEL abgefragt (nicht nacheinander) – sonst würde sich bei mehreren
-// Abschnitten die Wartezeit pro Abschnitt aufsummieren. Pro Abschnitt laufen
-// bis zu drei unabhängige Quellen (OSM/Overpass, Wikipedia, Wikivoyage) mit;
-// scheitert eine Quelle technisch, zählen trotzdem die anderen. Nur wenn
-// WIRKLICH ALLE Anfragen technisch fehlschlagen, wird das als Fehler nach
-// oben gereicht statt es als "nichts gefunden" zu verschleiern.
-async function findSightsAlongRoute(slice, categories, bufferKm, onProgress) {
-  const chunks = splitSliceIntoChunks(slice, 50, 5);
-  const sourcesPerChunk = (categories.length ? 1 : 0) + 2;
-  const total = chunks.length * sourcesPerChunk;
-  let done = 0, failed = 0;
-  const bump = ok => { done++; if (!ok) failed++; if (onProgress) onProgress(done, total); };
-  const tasks = [];
-  chunks.forEach(chunk => {
-    if (categories.length) {
-      tasks.push(findSights(chunk, categories, bufferKm).then(items => { bump(true); return items; }, () => { bump(false); return []; }));
-    }
-    const mid = chunk[Math.floor(chunk.length / 2)];
-    tasks.push(findWikipediaSights(mid, bufferKm).then(items => { bump(true); return items; }, () => { bump(false); return []; }));
-    tasks.push(findWikivoyageSights(mid, bufferKm).then(items => { bump(true); return items; }, () => { bump(false); return []; }));
-  });
-  const results = (await Promise.all(tasks)).flat();
-  if (results.length === 0 && failed === total) {
-    throw new Error('Weder OpenStreetMap, Wikipedia noch Wikivoyage waren erreichbar');
-  }
-  const seen = new Set();
-  const merged = [];
-  results.sort((a, b) => a.distKm - b.distKm);
-  for (const item of results) {
-    const key = item.name.trim().toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    merged.push(item);
-  }
-
-  // Position jedes Treffers entlang der Etappe bestimmen (nicht zu
-  // verwechseln mit distKm, der seitlichen Entfernung zur Route): so lässt
-  // sich die Liste anschließend in Fahrtrichtung sortieren, statt nach
-  // Nähe zur Route (was sonst zu einer für Google-Maps-Wegpunkte und die
-  // Anzeige unbrauchbaren, zufälligen Reihenfolge führt).
-  const cum = cumulativeKm(slice);
-  merged.forEach(item => { item.routeKm = projectOntoRoute(slice, cum, item.lat, item.lon).routeKm; });
-
-  return merged;
-}
-
-async function findSights(slice, categories, bufferKm) {
-  if (!categories.length) return [];
-  const [s, w, n, e] = bboxFromSlice(slice, bufferKm);
-  const bboxStr = `${s},${w},${n},${e}`;
-  const filters = [];
-  categories.forEach(cat => {
-    (CATEGORY_TAGS[cat] || []).forEach(([k, val]) => {
-      filters.push(`node["${k}"="${val}"](${bboxStr});`);
-      filters.push(`way["${k}"="${val}"](${bboxStr});`);
-    });
-  });
-  if (!filters.length) return [];
-  const q = `[out:json][timeout:20];(${filters.join('')});out center tags 80;`;
-  const data = await overpassFetch(q);
-  const step = Math.max(Math.floor(slice.length / 40), 1);
-  const sample = slice.filter((_, i) => i % step === 0);
-  const seen = new Set();
-  const items = [];
-  data.elements.forEach(el => {
-    const lat = el.lat != null ? el.lat : (el.center && el.center.lat);
-    const lon = el.lon != null ? el.lon : (el.center && el.center.lon);
-    const name = el.tags && (el.tags.name || el.tags['name:de']);
-    if (lat == null || lon == null || !name) return;
-    const key = name + '|' + lat.toFixed(3) + '|' + lon.toFixed(3);
-    if (seen.has(key)) return;
-    seen.add(key);
-    let minDist = Infinity;
-    sample.forEach(p => { const d = haversineKm(p, [lat, lon]); if (d < minDist) minDist = d; });
-    if (minDist > bufferKm) return;
-    items.push({
-      name, lat, lon, category: categoryLabel(el.tags), distKm: minDist,
-      description: el.tags.description || el.tags['description:de'] || null,
-      link: sightLinkFromTags(el.tags, lat, lon)
-    });
-  });
-  items.sort((a, b) => a.distKm - b.distKm);
-  return items;
-}
-
-// Verlinkt einen OSM-Treffer möglichst sinnvoll: eigene Website, sonst
-// verknüpfter Wikipedia-Artikel (aus dem OSM-Tag "wikipedia", Format
-// "sprache:Titel"), sonst als letzter Fallback die Position auf OSM selbst.
-function sightLinkFromTags(tags, lat, lon) {
-  if (tags.website) return tags.website;
-  if (tags['contact:website']) return tags['contact:website'];
-  if (tags.wikipedia) {
-    const sep = tags.wikipedia.indexOf(':');
-    if (sep > 0) {
-      const lang = tags.wikipedia.slice(0, sep);
-      const title = tags.wikipedia.slice(sep + 1);
-      return `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
-    }
-  }
-  return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`;
-}
-
-// Sucht Sehenswürdigkeiten entlang der gesamten Etappe (Korridor-Suche, siehe
-// findSightsAlongRoute). Weil dabei schon die komplette Strecke abgedeckt
-// wird (nicht nur ein Punkt), reicht als Fallback ein einziger weiterer
-// Versuch mit allen Kategorien, statt zusätzlich noch den Korridor selbst
-// zu eskalieren – das hält die Anzahl der Anfragen auch im Fehlerfall in
-// Grenzen.
-async function findBestSights(slice, p, onProgress) {
+// Sehenswürdigkeiten kommen ausschließlich aus zwei Quellen: der
+// Wunschliste (immer eingebaut, unabhängig von "Spots pro Tag") und den
+// optionalen KI-Vorschlägen (füllen die verbleibenden Plätze auf, unter
+// Berücksichtigung der in den Präferenzen gewählten Interessen). Ein
+// KI-Fehlschlag (falscher Key, kein CORS-Zugriff, Anbieter down) ist nur
+// dann ein echter Fehler, wenn auch die Wunschliste für diese Etappe leer
+// ausgeht – sonst zeigen wir einfach die Wunschliste allein.
+async function findBestSights(slice, p) {
   const bufferKm = Math.min(Math.max(p.umwegKm, 15), 40);
-  const preferredCats = p.sights.length ? p.sights : Object.keys(CATEGORY_TAGS);
-  let lastError = null, anySuccess = false;
+  const preferredCats = p.sights.length ? p.sights : SIGHT_CATEGORY_KEYS;
 
-  // Wunschliste-Treffer sind vom Nutzer bewusst ausgewählt und werden immer
-  // eingebaut, unabhängig von "Spots pro Tag" – die automatischen
-  // OSM/Wikipedia-Vorschläge füllen danach nur noch die verbleibenden
-  // Plätze auf (falls welche übrig sind), statt die Wunschliste zu
-  // verdrängen.
   const bucketMatches = bucketItemsForSlice(slice);
   const remainingSlots = Math.max(p.spotsProTag - bucketMatches.length, 0);
   const bucketKeys = new Set(bucketMatches.map(b => b.name.trim().toLowerCase()));
@@ -1369,50 +1144,29 @@ async function findBestSights(slice, p, onProgress) {
   // Finale Liste wird in Fahrtrichtung (routeKm) sortiert, damit Tageskarte
   // und Google-Maps-Link die Sehenswürdigkeiten in der Reihenfolge zeigen,
   // in der man ihnen auf der Etappe tatsächlich begegnet.
-  const finalize = (autoItems, radiusKm, expanded, allCategories) => {
+  const finalize = aiItems => {
     const seen = new Set(bucketKeys);
-    const filteredAuto = autoItems.filter(it => {
+    const filteredAi = aiItems.filter(it => {
       const key = it.name.trim().toLowerCase();
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
-    const list = [...bucketMatches, ...filteredAuto.slice(0, remainingSlots)].sort((a, b) => a.routeKm - b.routeKm);
-    return { list, radiusKm, expanded: !!expanded, allCategories: !!allCategories };
+    const list = [...bucketMatches, ...filteredAi.slice(0, remainingSlots)].sort((a, b) => a.routeKm - b.routeKm);
+    return { list, radiusKm: bufferKm };
   };
 
-  if (remainingSlots === 0) {
-    return finalize([], bufferKm, false);
+  if (remainingSlots === 0 || !aiSettings.enabled || !aiSettings.apiKey) {
+    return finalize([]);
   }
-
-  // KI-Vorschläge (falls aktiviert) laufen parallel zur ersten OSM/Wikipedia-
-  // Runde mit, statt die Etappenplanung zusätzlich zu verzögern; ein
-  // Fehlschlag (falscher Key, Anbieter nicht erreichbar, kein CORS-Zugriff
-  // vom Browser aus) darf die übrigen Quellen nicht blockieren.
-  const aiPromise = findAiSights(slice, aiSettings, preferredCats, bufferKm).catch(() => []);
 
   try {
-    const items = await findSightsAlongRoute(slice, preferredCats, bufferKm, onProgress);
-    anySuccess = true;
-    const aiItems = await aiPromise;
-    if (items.length || aiItems.length || bucketMatches.length) return finalize([...items, ...aiItems], bufferKm, !p.sights.length);
+    const aiItems = await findAiSights(slice, aiSettings, preferredCats, bufferKm);
+    return finalize(aiItems);
   } catch (e) {
-    lastError = e;
-    const aiItems = await aiPromise;
-    if (aiItems.length || bucketMatches.length) return finalize(aiItems, bufferKm, !p.sights.length);
+    if (!bucketMatches.length) throw e;
+    return finalize([]);
   }
-
-  if (p.sights.length) {
-    await sleep(400);
-    try {
-      const items = await findSightsAlongRoute(slice, Object.keys(CATEGORY_TAGS), bufferKm, onProgress);
-      anySuccess = true;
-      if (items.length || bucketMatches.length) return finalize(items, bufferKm, true, true);
-    } catch (e) { lastError = e; }
-  }
-
-  if (!anySuccess && lastError && !bucketMatches.length) throw lastError;
-  return finalize([], bufferKm, true);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1480,15 +1234,11 @@ async function computeTrip() {
       } catch (e) { day.campsiteError = e.message; }
 
       await sleep(300);
-      const onSightProgress = (chunk, total) => {
-        setPlanLoadingText(`Etappe ${day.index} von ${totalLegs}: Sehenswürdigkeiten entlang der Strecke werden gesucht (${chunk}/${total}) …`);
-      };
+      setPlanLoadingText(`Etappe ${day.index} von ${totalLegs}: Sehenswürdigkeiten werden ermittelt …`);
       try {
-        const result = await findBestSights(day.slice, prefs, onSightProgress);
+        const result = await findBestSights(day.slice, prefs);
         day.sights = result.list;
         day.sightRadiusKm = result.radiusKm;
-        day.sightExpanded = result.expanded;
-        day.sightAllCategories = result.allCategories;
       } catch (e) { day.sightError = e.message; }
     }
 
@@ -1597,12 +1347,9 @@ function dayCardHtml(day, zielPoint) {
   if (day.sightError) {
     sightsHtml = `<span class="spot-error">Spot-Suche fehlgeschlagen: ${escapeHtml(day.sightError)}</span>`;
   } else if (!day.sights || !day.sights.length) {
-    sightsHtml = `<span class="text-muted">Auch im erweiterten Umkreis von ${day.sightRadiusKm} km wurden keine Sehenswürdigkeiten gefunden (OpenStreetMap &amp; Wikipedia durchsucht).</span>`;
+    sightsHtml = `<span class="text-muted">${aiSettings.enabled ? 'Weder in der Wunschliste noch über die KI-Vorschläge wurde etwas für diese Etappe gefunden.' : 'Keine Sehenswürdigkeiten – füge Orte zur Wunschliste hinzu oder aktiviere KI-Vorschläge in den Präferenzen.'}</span>`;
   } else {
-    const hint = day.sightExpanded
-      ? `<div class="field-hint">${icon('info', 'icon-hint')} ${day.sightAllCategories ? 'Nichts zu deinen gewählten Interessen gefunden – zeige allgemeine Sehenswürdigkeiten' : 'Umkreis erweitert'} auf ${day.sightRadiusKm} km.</div>`
-      : '';
-    sightsHtml = hint + day.sights.map((s, i) => `
+    sightsHtml = day.sights.map((s, i) => `
       <div class="sight-item${s.bucket ? ' sight-item-bucket' : ''}" id="sight-${day.index}-${i}">
         <strong>${icon(s.bucket ? 'star' : 'pin')}${escapeHtml(s.name)}</strong>
         <span class="sight-meta">${escapeHtml(s.category)} · ${s.distKm.toFixed(1)} km von der Route</span>
