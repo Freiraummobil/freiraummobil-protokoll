@@ -372,7 +372,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
     <div class="card">
       <div class="card-title"><span class="ci" data-icon="star"></span>KI-Vorschläge (optional)</div>
-      <div class="field-hint">Nutzt eine KI mit deinem eigenen API-Key, um Sehenswürdigkeiten entlang der Etappe vorzuschlagen und zu beschreiben – berücksichtigt dabei deine gewählten Interessen. Neben der Wunschliste die einzige Quelle für Sehenswürdigkeiten in dieser App. Der Key wird nur lokal auf diesem Gerät gespeichert und ausschließlich direkt an den gewählten Anbieter gesendet, nie an uns oder Dritte. Kosten fallen über dein eigenes Konto beim Anbieter an – bitte den Key nirgendwo teilen.</div>
+      <div class="field-hint">Nutzt eine KI mit deinem eigenen API-Key, um zusätzlich zur normalen Suche Sehenswürdigkeiten und Stellplatz-/Camping-Vorschläge entlang der Etappe vorzuschlagen und zu beschreiben – berücksichtigt dabei deine gewählten Interessen bzw. Präferenzen. Neben der Wunschliste die einzige Quelle für Sehenswürdigkeiten in dieser App; bei Stellplätzen ergänzt sie die OSM-Suche. Der Key wird nur lokal auf diesem Gerät gespeichert und ausschließlich direkt an den gewählten Anbieter gesendet, nie an uns oder Dritte. Kosten fallen über dein eigenes Konto beim Anbieter an – bitte den Key nirgendwo teilen.</div>
       <div class="field checkbox-field"><label><input type="checkbox" id="ai-enabled"> KI-Vorschläge aktivieren</label></div>
       <div class="field"><label>Anbieter</label>
         <select id="ai-provider">
@@ -469,7 +469,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
       <div id="dayList"></div>
     </div>
 
-    <div class="footnote">Kartendaten &amp; Ortssuche: © OpenStreetMap-Mitwirkende · Routing: OSRM · Stellplatz-Daten: Overpass API · Sehenswürdigkeiten: eigene Wunschliste &amp; optionale KI-Vorschläge. Alle Angaben ohne Gewähr – bitte Vorschläge vor Ort prüfen (Höhe, Gewicht, Öffnungszeiten).</div>
+    <div class="footnote">Kartendaten &amp; Ortssuche: © OpenStreetMap-Mitwirkende · Routing: OSRM · Stellplatz-Daten: Overpass API &amp; optionale KI-Vorschläge · Sehenswürdigkeiten: eigene Wunschliste &amp; optionale KI-Vorschläge. Alle Angaben ohne Gewähr – bitte Vorschläge vor Ort prüfen (Höhe, Gewicht, Öffnungszeiten).</div>
 
     <div class="btn-bar"><button class="btn-prev" onclick="goTo(3)">← Zurück zur Route</button></div>
   </div>
@@ -960,25 +960,55 @@ function radiusSteps(baseKm) {
   const capped = raw.map(v => Math.min(Math.round(v), 100));
   return Array.from(new Set(capped));
 }
+// Stellplätze kommen primär weiterhin aus OSM/Overpass (radiusSteps-
+// Eskalation); optional ergänzen KI-Vorschläge (falls aktiviert) die Liste.
+// Die KI-Anfrage läuft parallel zur OSM-Eskalation mit, damit sie die
+// Etappenplanung nicht zusätzlich verzögert.
 async function findBestCampsites(coord, p) {
   const steps = radiusSteps(Math.max(p.umwegKm, 15));
   let lastError = null, anySuccess = false;
+  let osmSites = [], radiusKm = steps[steps.length - 1], expanded = true;
+
+  const aiPromise = findAiCampsites(coord, aiSettings, p).catch(e => ({ items: [], proposedCount: 0, error: e }));
+
   for (let i = 0; i < steps.length; i++) {
     try {
       const sites = await findCampsites(coord, steps[i]);
       anySuccess = true;
-      if (sites.length) {
-        sites.forEach(s => s.score = scoreCampsite(s, p));
-        sites.sort((a, b) => b.score - a.score);
-        return { list: sites.slice(0, 4), radiusKm: steps[i], expanded: i > 0 };
-      }
+      if (sites.length) { osmSites = sites; radiusKm = steps[i]; expanded = i > 0; break; }
     } catch (e) { lastError = e; }
     if (i < steps.length - 1) await sleep(400);
   }
-  if (!anySuccess && lastError) throw lastError;
-  return { list: [], radiusKm: steps[steps.length - 1], expanded: true };
+
+  const aiResult = await aiPromise;
+  const aiSites = aiResult.items || [];
+  const seen = new Set(osmSites.map(s => (s.tags.name || '').trim().toLowerCase()).filter(Boolean));
+  const dedupedAi = aiSites.filter(s => {
+    const key = (s.tags.name || '').trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  let aiNote;
+  if (aiSettings.enabled && aiSettings.apiKey && !aiResult.error) {
+    if (aiResult.proposedCount === 0) aiNote = 'Die KI hat für diese Etappe keine Stellplatz-Vorschläge geliefert.';
+    else if (dedupedAi.length === 0) aiNote = `Die KI hat ${aiResult.proposedCount} Vorschlag/Vorschläge geliefert, aber keiner ließ sich eindeutig finden oder lag nachweislich in der Nähe.`;
+  }
+
+  const combined = [...osmSites, ...dedupedAi];
+  if (!combined.length) {
+    if (!anySuccess && lastError) throw lastError;
+    return { list: [], radiusKm, expanded: true, aiNote, aiError: aiResult.error ? aiResult.error.message : null };
+  }
+  combined.forEach(s => { if (s.score == null) s.score = scoreCampsite(s, p); });
+  combined.sort((a, b) => b.score - a.score);
+  return { list: combined.slice(0, 4), radiusKm, expanded, aiNote, aiError: aiResult.error ? aiResult.error.message : null };
 }
-function campsiteLabel(t) { return t.tourism === 'caravan_site' ? 'Wohnmobil-/Caravan-Stellplatz' : 'Campingplatz'; }
+function campsiteLabel(t) {
+  if (t.ai) return 'KI-Vorschlag';
+  return t.tourism === 'caravan_site' ? 'Wohnmobil-/Caravan-Stellplatz' : 'Campingplatz';
+}
 function campsiteAmenities(t) {
   const list = [];
   if (t.power_supply || t.electricity === 'yes') list.push({ icon: 'bolt', label: 'Strom' });
@@ -1029,6 +1059,7 @@ const BUCKET_BUFFER_KM = 60;
 // nichts". Deshalb wie bei der Wunschliste ein großzügigerer, von dieser
 // Präferenz unabhängiger Radius.
 const AI_BUFFER_KM = 60;
+const CAMPSITE_AI_BUFFER_KM = 60;
 
 function bucketItemsForSlice(slice) {
   if (!bucketlist.length) return [];
@@ -1074,30 +1105,49 @@ function buildAiPrompt(from, to, categories, bufferKm, maxCount) {
     `{"orte":[{"name":"Vollständiger, eindeutig auffindbarer Name inkl. Ort/Region (z. B. 'Burg Eltz, Wierschem' statt nur 'Burg Eltz'), damit er sich zweifelsfrei per Kartensuche finden lässt","beschreibung":"Ein bis zwei Sätze auf Deutsch"}]}`;
 }
 
+function aiErrorMessage(providerLabel, status) {
+  const suffix = status === 429
+    ? ' – Rate-Limit/Kontingent erreicht, bitte kurz warten oder Kontingent im Konto des Anbieters prüfen'
+    : '';
+  return providerLabel + '-Anfrage fehlgeschlagen (HTTP ' + status + ')' + suffix;
+}
+
+// Ruft die konfigurierte KI-API auf. Bei HTTP 429 (Rate-Limit/Kontingent) wird
+// EINMAL nach kurzer Pause automatisch neu versucht, bevor der Fehler nach
+// oben gereicht wird – kostenlose Kontingente sind oft eng bemessen und ein
+// einzelner Ausreißer soll nicht gleich die ganze Etappe scheitern lassen.
 async function callAiProvider(settings, prompt) {
-  if (settings.provider === 'gemini') {
-    const model = settings.model || 'gemini-2.0-flash';
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
-    const res = await fetchWithTimeout(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json' } })
-    }, 30000);
-    if (!res.ok) throw new Error('Gemini-Anfrage fehlgeschlagen (HTTP ' + res.status + ')');
-    const data = await res.json();
-    const cand = data.candidates && data.candidates[0];
-    return cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
+  const isGemini = settings.provider === 'gemini';
+  const providerLabel = isGemini ? 'Gemini' : 'OpenAI';
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    let res;
+    if (isGemini) {
+      const model = settings.model || 'gemini-2.0-flash';
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
+      res = await fetchWithTimeout(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json' } })
+      }, 30000);
+    } else {
+      const model = settings.model || 'gpt-4o-mini';
+      res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.apiKey },
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' } })
+      }, 30000);
+    }
+    if (res.ok) {
+      const data = await res.json();
+      if (isGemini) {
+        const cand = data.candidates && data.candidates[0];
+        return cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
+      }
+      return data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    }
+    if (res.status === 429 && attempt === 1) { await sleep(4000); continue; }
+    throw new Error(aiErrorMessage(providerLabel, res.status));
   }
-  // Default: OpenAI-kompatible Chat-Completions-API.
-  const model = settings.model || 'gpt-4o-mini';
-  const res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.apiKey },
-    body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' } })
-  }, 30000);
-  if (!res.ok) throw new Error('OpenAI-Anfrage fehlgeschlagen (HTTP ' + res.status + ')');
-  const data = await res.json();
-  return data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
 }
 
 function parseAiPlaces(raw) {
@@ -1131,6 +1181,46 @@ async function findAiSights(slice, settings, categories, bufferKm) {
       distKm: proj.distKm, routeKm: proj.routeKm,
       description: place.beschreibung || null,
       link: `https://www.openstreetmap.org/?mlat=${found.lat}&mlon=${found.lon}#map=15/${found.lat}/${found.lon}`
+    });
+  }
+  return { items: results, proposedCount: places.length };
+}
+
+function stellplatzPrefLabels(p) {
+  const typMap = {}; CHIP_GROUPS.stellplatzTyp.options.forEach(o => { typMap[o.v] = o.l; });
+  const ausMap = {}; CHIP_GROUPS.ausstattung.options.forEach(o => { ausMap[o.v] = o.l; });
+  return [...p.stellplatzTyp.map(v => typMap[v] || v), ...p.ausstattung.map(v => ausMap[v] || v)];
+}
+
+function buildAiCampsitePrompt(coord, bufferKm, prefLabels, maxCount) {
+  const prefText = prefLabels.length ? ` Bevorzugt: ${prefLabels.join(', ')}.` : '';
+  return `Ich reise mit einem Wohnmobil und suche einen Übernachtungsplatz in der Nähe der GPS-Koordinaten ${coord[0].toFixed(4)},${coord[1].toFixed(4)}, höchstens ${bufferKm} km entfernt.${prefText} ` +
+    `Nenne mir bis zu ${maxCount} reale, existierende Stellplätze oder Campingplätze. ` +
+    `Antworte AUSSCHLIESSLICH mit kompaktem JSON in exakt diesem Format, ohne Markdown-Codefences, ohne zusätzlichen Text: ` +
+    `{"orte":[{"name":"Vollständiger, eindeutig auffindbarer Name inkl. Ort/Region, damit er sich zweifelsfrei per Kartensuche finden lässt","beschreibung":"Ein bis zwei Sätze auf Deutsch"}]}`;
+}
+
+// Analog zu findAiSights: die KI liefert nur Name + Beschreibung, nie
+// Koordinaten oder Ausstattungsangaben (Strom/Dusche/WLAN lassen sich nicht
+// verifizieren und würden sonst als scheinbar gesicherte Fakten angezeigt).
+// Die Position wird über Nominatim ermittelt und gegen den echten Abstand
+// zur gesuchten Koordinate geprüft.
+async function findAiCampsites(coord, settings, p) {
+  if (!settings.enabled || !settings.apiKey) return { items: [], proposedCount: 0 };
+  const prompt = buildAiCampsitePrompt(coord, CAMPSITE_AI_BUFFER_KM, stellplatzPrefLabels(p), 6);
+  const raw = await callAiProvider(settings, prompt);
+  const places = parseAiPlaces(raw);
+  const results = [];
+  for (const place of places) {
+    await sleep(1100); // Nominatim-Nutzungsrichtlinie: max. 1 Anfrage/Sekunde
+    let found;
+    try { found = await geocode(place.name); } catch (e) { continue; }
+    if (!found) continue;
+    const distKm = haversineKm(coord, [found.lat, found.lon]);
+    if (distKm > CAMPSITE_AI_BUFFER_KM) continue; // KI-Behauptung stimmt geometrisch nicht – verwerfen
+    results.push({
+      lat: found.lat, lon: found.lon, distKm,
+      tags: { name: place.name, description: place.beschreibung || undefined, ai: true }
     });
   }
   return { items: results, proposedCount: places.length };
@@ -1268,6 +1358,8 @@ async function computeTrip() {
         day.campsites = result.list;
         day.campsiteRadiusKm = result.radiusKm;
         day.campsiteExpanded = result.expanded;
+        day.campsiteAiNote = result.aiNote || null;
+        day.campsiteAiError = result.aiError || null;
       } catch (e) { day.campsiteError = e.message; }
 
       await sleep(300);
@@ -1366,18 +1458,22 @@ function dayCardHtml(day, zielPoint) {
   let stayHtml = day.isLast
     ? `<div class="spot-item spot-best"><strong>${icon('flag')}${escapeHtml(shortName(zielPoint.name))}</strong><span>Ende der Route</span></div>`
     : '';
+  const campsiteAiHint = day.campsiteAiError
+    ? `<div class="field-hint">${icon('warning', 'icon-hint')} KI-Vorschläge fehlgeschlagen: ${escapeHtml(day.campsiteAiError)}</div>`
+    : (day.campsiteAiNote ? `<div class="field-hint">${icon('info', 'icon-hint')} ${escapeHtml(day.campsiteAiNote)}</div>` : '');
   if (day.campsiteError) {
     stayHtml += `<div class="spot-item"><span class="spot-error">Stellplatzsuche fehlgeschlagen: ${escapeHtml(day.campsiteError)}</span></div>`;
   } else if (!day.campsites || !day.campsites.length) {
-    stayHtml += `<div class="spot-item"><span class="spot-error">Auch im erweiterten Umkreis von ${day.campsiteRadiusKm} km wurde kein Stellplatz gefunden (OpenStreetMap hat hier offenbar keine Daten). Bitte manuell auf der Karte prüfen.</span></div>`;
+    stayHtml += campsiteAiHint + `<div class="spot-item"><span class="spot-error">Auch im erweiterten Umkreis von ${day.campsiteRadiusKm} km wurde kein Stellplatz gefunden (OpenStreetMap hat hier offenbar keine Daten). Bitte manuell auf der Karte prüfen.</span></div>`;
   } else {
     const hint = day.campsiteExpanded
       ? `<div class="field-hint">${icon('info', 'icon-hint')} Im bevorzugten Umkreis nichts gefunden – Suche auf ${day.campsiteRadiusKm} km erweitert, Vorschläge erfüllen ggf. nicht alle Präferenzen.</div>`
       : '';
-    stayHtml += hint + day.campsites.map((s, i) => `
+    stayHtml += campsiteAiHint + hint + day.campsites.map((s, i) => `
       <div class="spot-item ${i === 0 ? 'spot-best' : ''}">
-        <strong>${i === 0 ? icon('star') : icon('parking')}${escapeHtml(s.tags.name || campsiteLabel(s.tags))}</strong>
+        <strong>${i === 0 ? icon('star') : icon(s.tags.ai ? 'tag' : 'parking')}${escapeHtml(s.tags.name || campsiteLabel(s.tags))}</strong>
         <span>${campsiteLabel(s.tags)} · ${s.distKm.toFixed(1)} ${nearLabel}</span><br>
+        ${s.tags.description ? `<div class="sight-desc">${escapeHtml(s.tags.description)}</div>` : ''}
         ${campsiteAmenities(s.tags).map(a => `<span class="sight-chip">${icon(a.icon, 'icon-sm')} ${escapeHtml(a.label)}</span>`).join('')}
         <a class="spot-link" href="https://www.openstreetmap.org/?mlat=${s.lat}&mlon=${s.lon}#map=16/${s.lat}/${s.lon}" target="_blank" rel="noopener">Auf Karte öffnen ${icon('externalLink', 'icon-sm')}</a>
       </div>`).join('');
