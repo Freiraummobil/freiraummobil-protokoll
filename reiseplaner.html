@@ -201,8 +201,17 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .spot-item.spot-best strong .icon { color: var(--green); }
 .spot-item span { display: inline-block; font-size: 11.5px; color: var(--ink-soft); }
 .spot-item .sight-chip { margin: 4px 4px 0 0; }
+.spot-item.spot-item-selected { border: 2px solid var(--accent); }
 .spot-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 7px; font-size: 12px; color: var(--accent-dark); text-decoration: none; font-weight: 700; }
 .spot-link .icon { width: 12px; height: 12px; }
+.spot-actions, .sight-actions { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.spot-actions .spot-link, .sight-actions .spot-link { margin-top: 7px; }
+.spot-select {
+  display: inline-flex; align-items: center; gap: 4px; margin-top: 7px; font-size: 12px; font-weight: 700;
+  color: var(--accent-dark); background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+}
+.spot-select .icon { width: 12px; height: 12px; }
+.spot-select.spot-select-active { color: var(--green); }
 .day-maps-link {
   display: inline-flex; align-items: center; gap: 6px; margin: 10px 0 2px;
   background: var(--accent-light); color: #326400; text-decoration: none;
@@ -228,6 +237,28 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .sight-item .sight-desc { font-size: 12px; color: var(--ink); opacity: 0.8; line-height: 1.4; margin-top: 6px; }
 .sight-item .spot-link { color: var(--accent-dark); }
 .sight-item-bucket { border: 2px solid var(--accent); }
+.sight-detail-btn { border: none; background: none; padding: 0; cursor: pointer; font-family: inherit; }
+
+.detail-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(37,30,24,0.55); z-index: 500;
+  align-items: flex-end; justify-content: center;
+}
+.detail-overlay.show { display: flex; }
+.detail-card {
+  background: var(--card); width: 100%; max-width: 480px; max-height: 85vh; overflow-y: auto;
+  border-radius: var(--radius) var(--radius) 0 0; padding: 22px; position: relative;
+}
+.detail-close {
+  position: absolute; top: 14px; right: 14px; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--field-bg); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.detail-close .icon { width: 16px; height: 16px; color: var(--ink); }
+.detail-img { width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--radius-sm); margin-bottom: 14px; background: var(--field-bg); display: block; }
+.detail-title { font-size: 17px; font-weight: 700; margin-bottom: 10px; padding-right: 36px; }
+.detail-text { font-size: 13.5px; line-height: 1.55; color: var(--ink); }
+.detail-status { font-size: 13px; color: var(--ink-soft); padding: 6px 0; }
+.detail-source { display: inline-flex; align-items: center; gap: 4px; margin-top: 16px; font-size: 12px; color: var(--accent-dark); font-weight: 700; text-decoration: none; }
+.detail-source .icon { width: 12px; height: 12px; }
 
 .bucket-remove {
   display: inline-flex; align-items: center; gap: 4px; margin-top: 7px; font-size: 12px;
@@ -468,7 +499,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
       <div id="dayList"></div>
     </div>
 
-    <div class="footnote">Kartendaten &amp; Ortssuche: © OpenStreetMap-Mitwirkende · Routing: OSRM · Stellplatz-Daten: Overpass API &amp; optionale KI-Vorschläge · Sehenswürdigkeiten: eigene Wunschliste &amp; optionale KI-Vorschläge. Alle Angaben ohne Gewähr – bitte Vorschläge vor Ort prüfen (Höhe, Gewicht, Öffnungszeiten).</div>
+    <div class="footnote">Kartendaten &amp; Ortssuche: © OpenStreetMap-Mitwirkende · Routing: OSRM · Stellplatz-Daten: Overpass API &amp; optionale KI-Vorschläge · Sehenswürdigkeiten: eigene Wunschliste &amp; optionale KI-Vorschläge, Detailinfos auf Anfrage von Wikipedia. Alle Angaben ohne Gewähr – bitte Vorschläge vor Ort prüfen (Höhe, Gewicht, Öffnungszeiten).</div>
 
     <div class="btn-bar"><button class="btn-prev" onclick="goTo(3)">← Zurück zur Route</button></div>
   </div>
@@ -477,6 +508,14 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+
+<!-- SEHENSWÜRDIGKEIT-DETAIL -->
+<div class="detail-overlay" id="detailOverlay" onclick="if (event.target === this) closeSightDetail()">
+  <div class="detail-card">
+    <button type="button" class="detail-close" onclick="closeSightDetail()" aria-label="Schließen"><span class="icon" data-icon="close"></span></button>
+    <div id="detailBody"></div>
+  </div>
+</div>
 
 <script>
 // ══════════════════════════════════════════════════════════════
@@ -768,7 +807,9 @@ const ICON_PATHS = {
   warning: '<path d="M12 3 2 20h20z" stroke-linejoin="round"/><path d="M12 10v4M12 17h.01"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 8v.01"/>',
   externalLink: '<path d="M7 17 17 7M9 7h8v8"/>',
-  trash: '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/><path d="M10 11v6M14 11v6"/>'
+  trash: '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/><path d="M10 11v6M14 11v6"/>',
+  check: '<path d="M4 12l5 5L20 6"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>'
 };
 function icon(name, cls) {
   const inner = ICON_PATHS[name] || '';
@@ -1263,6 +1304,7 @@ async function findBestSights(slice, p) {
 // TRIP COMPUTATION
 // ══════════════════════════════════════════════════════════════
 let map = null, mapLayer = null;
+let currentPlan = null, currentZielPoint = null;
 
 function setPlanLoading(on) {
   document.getElementById('planLoading').classList.toggle('show', on);
@@ -1387,6 +1429,8 @@ function numIcon(label, color) {
 }
 
 function renderResult(startPoint, zielPoint, route, plan) {
+  currentPlan = plan;
+  currentZielPoint = zielPoint;
   document.getElementById('resultEmpty').style.display = 'none';
   document.getElementById('resultError').innerHTML = '';
   document.getElementById('resultContent').style.display = 'block';
@@ -1454,14 +1498,20 @@ function dayCardHtml(day, zielPoint) {
     const hint = day.campsiteExpanded
       ? `<div class="field-hint">${icon('info', 'icon-hint')} Im bevorzugten Umkreis nichts gefunden – Suche auf ${day.campsiteRadiusKm} km erweitert, Vorschläge erfüllen ggf. nicht alle Präferenzen.</div>`
       : '';
-    stayHtml += campsiteAiHint + hint + day.campsites.map((s, i) => `
-      <div class="spot-item ${i === 0 ? 'spot-best' : ''}">
+    stayHtml += campsiteAiHint + hint + day.campsites.map((s, i) => {
+      const selected = day.selectedCampsiteIdx === i;
+      return `
+      <div class="spot-item ${i === 0 ? 'spot-best' : ''}${selected ? ' spot-item-selected' : ''}">
         <strong>${i === 0 ? icon('star') : icon(s.tags.ai ? 'tag' : 'parking')}${escapeHtml(s.tags.name || campsiteLabel(s.tags))}</strong>
         <span>${campsiteLabel(s.tags)} · ${s.distKm.toFixed(1)} ${nearLabel}</span><br>
         ${s.tags.description ? `<div class="sight-desc">${escapeHtml(s.tags.description)}</div>` : ''}
         ${campsiteAmenities(s.tags).map(a => `<span class="sight-chip">${icon(a.icon, 'icon-sm')} ${escapeHtml(a.label)}</span>`).join('')}
-        <a class="spot-link" href="https://www.openstreetmap.org/?mlat=${s.lat}&mlon=${s.lon}#map=16/${s.lat}/${s.lon}" target="_blank" rel="noopener">Auf Karte öffnen ${icon('externalLink', 'icon-sm')}</a>
-      </div>`).join('');
+        <div class="spot-actions">
+          <button type="button" class="spot-select${selected ? ' spot-select-active' : ''}" onclick="selectCampsite(${day.index}, ${i})">${icon(selected ? 'check' : 'flag', 'icon-sm')} ${selected ? 'Für Navigation ausgewählt' : 'Für Navigation auswählen'}</button>
+          <a class="spot-link" href="https://www.openstreetmap.org/?mlat=${s.lat}&mlon=${s.lon}#map=16/${s.lat}/${s.lon}" target="_blank" rel="noopener">Auf Karte öffnen ${icon('externalLink', 'icon-sm')}</a>
+        </div>
+      </div>`;
+    }).join('');
   }
 
   let sightsHtml;
@@ -1478,25 +1528,101 @@ function dayCardHtml(day, zielPoint) {
         <strong>${icon(s.bucket ? 'star' : 'pin')}${escapeHtml(s.name)}</strong>
         <span class="sight-meta">${escapeHtml(s.category)} · ${s.distKm.toFixed(1)} km von der Route</span>
         ${s.description ? `<div class="sight-desc">${escapeHtml(s.description)}</div>` : ''}
-        <a class="spot-link" href="${escapeHtml(s.link || ('https://www.openstreetmap.org/?mlat=' + s.lat + '&mlon=' + s.lon + '#map=17/' + s.lat + '/' + s.lon))}" target="_blank" rel="noopener">Mehr erfahren ${icon('externalLink', 'icon-sm')}</a>
+        <div class="sight-actions">
+          <a class="spot-link" href="${escapeHtml(s.link || ('https://www.openstreetmap.org/?mlat=' + s.lat + '&mlon=' + s.lon + '#map=17/' + s.lat + '/' + s.lon))}" target="_blank" rel="noopener">Auf Karte anzeigen ${icon('externalLink', 'icon-sm')}</a>
+          <a class="spot-link" href="https://www.google.com/search?q=${encodeURIComponent(s.name)}" target="_blank" rel="noopener">Webseite ${icon('externalLink', 'icon-sm')}</a>
+          <button type="button" class="spot-link sight-detail-btn" onclick="showSightDetail(${day.index}, ${i})">${icon('info', 'icon-sm')} Mehr Infos</button>
+        </div>
       </div>`).join('');
   }
 
   const mapsWaypoints = (day.sights || []).map(s => [s.lat, s.lon]);
+  const selectedCampsite = day.selectedCampsiteIdx != null && day.campsites ? day.campsites[day.selectedCampsiteIdx] : null;
+  if (selectedCampsite) mapsWaypoints.push([selectedCampsite.lat, selectedCampsite.lon]);
   const mapsLink = googleMapsRouteLink(day.from, day.to, mapsWaypoints);
+  const mapsLinkExtras = [];
+  if ((day.sights || []).length) mapsLinkExtras.push('Sehenswürdigkeiten');
+  if (selectedCampsite) mapsLinkExtras.push('gewählten Stellplatz');
 
   return `
-    <div class="day-card">
+    <div class="day-card" id="day-card-${day.index}">
       <div class="day-head">
         <div class="day-badge">${day.isLast ? icon('flag') : day.index}</div>
         <div><strong>Tag ${day.index}</strong><span class="day-km">${Math.round(day.distanceKm)} km Fahrstrecke</span></div>
       </div>
-      <a class="day-maps-link" href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener">${icon('map')}Etappe in Google Maps öffnen${mapsWaypoints.length ? ' (inkl. Sehenswürdigkeiten)' : ''}${icon('externalLink')}</a>
+      <a class="day-maps-link" href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener">${icon('map')}Etappe in Google Maps öffnen${mapsLinkExtras.length ? ` (inkl. ${mapsLinkExtras.join(' & ')})` : ''}${icon('externalLink')}</a>
       <div class="day-sub">${title}</div>
       ${stayHtml}
       <div class="day-sub">Sehenswürdigkeiten auf dieser Etappe</div>
       <div class="sights-wrap">${sightsHtml}</div>
     </div>`;
+}
+
+function selectCampsite(dayIndex, csIndex) {
+  const day = currentPlan && currentPlan.days.find(d => d.index === dayIndex);
+  if (!day) return;
+  day.selectedCampsiteIdx = day.selectedCampsiteIdx === csIndex ? null : csIndex;
+  const el = document.getElementById('day-card-' + dayIndex);
+  if (el) el.outerHTML = dayCardHtml(day, currentZielPoint);
+}
+
+function closeSightDetail() {
+  document.getElementById('detailOverlay').classList.remove('show');
+}
+
+async function showSightDetail(dayIndex, sightIdx) {
+  const day = currentPlan && currentPlan.days.find(d => d.index === dayIndex);
+  const s = day && day.sights && day.sights[sightIdx];
+  if (!s) return;
+  const webLink = 'https://www.google.com/search?q=' + encodeURIComponent(s.name);
+  document.getElementById('detailBody').innerHTML = `
+    <div class="detail-title">${escapeHtml(s.name)}</div>
+    <div class="detail-status">Informationen werden geladen …</div>`;
+  document.getElementById('detailOverlay').classList.add('show');
+
+  let summary = null;
+  try { summary = await fetchWikipediaSummary(s.name); } catch (e) { summary = null; }
+
+  // Modal könnte zwischenzeitlich geschlossen worden sein – dann nicht mehr überschreiben.
+  if (!document.getElementById('detailOverlay').classList.contains('show')) return;
+
+  const img = summary && summary.image ? `<img class="detail-img" src="${escapeHtml(summary.image)}" alt="">` : '';
+  const text = summary && summary.extract
+    ? `<div class="detail-text">${escapeHtml(summary.extract)}</div>`
+    : `<div class="detail-status">Keine weiteren Informationen gefunden.</div>`;
+  const sourceHref = (summary && summary.pageUrl) || webLink;
+  const sourceLabel = (summary && summary.pageUrl) ? 'Wikipedia-Artikel öffnen' : 'Im Web suchen';
+  document.getElementById('detailBody').innerHTML = `
+    ${img}
+    <div class="detail-title">${escapeHtml(s.name)}</div>
+    ${text}
+    <a class="detail-source" href="${escapeHtml(sourceHref)}" target="_blank" rel="noopener">${sourceLabel} ${icon('externalLink', 'icon-sm')}</a>`;
+}
+
+// Lädt bei Bedarf (Klick auf "Mehr Infos") einmalig eine Kurzfassung samt
+// Titelbild von Wikipedia für genau diesen einen Ort nach – anders als die
+// früher entfernte Wikipedia-Suche ist das kein Sehenswürdigkeiten-Quelle
+// mehr, sondern nur eine optionale Detailanreicherung on-demand.
+async function fetchWikipediaSummary(fullName) {
+  const shortTitle = fullName.split(',')[0].trim();
+  const candidates = shortTitle === fullName.trim() ? [shortTitle] : [shortTitle, fullName.trim()];
+  for (const title of candidates) {
+    try {
+      const url = 'https://de.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title);
+      const res = await fetchWithTimeout(url, { headers: { 'Accept': 'application/json' } }, 10000);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.type !== 'disambiguation' && data.extract) {
+          return {
+            extract: data.extract,
+            image: (data.thumbnail && data.thumbnail.source) || null,
+            pageUrl: (data.content_urls && data.content_urls.desktop && data.content_urls.desktop.page) || null
+          };
+        }
+      }
+    } catch (e) { /* nächster Kandidat bzw. aufgeben */ }
+  }
+  return null;
 }
 
 // ══════════════════════════════════════════════════════════════
