@@ -581,9 +581,11 @@ function escapeHtml(s) {
 function shortName(displayName) { return (displayName || '').split(',').slice(0, 2).join(', '); }
 
 // Baut einen Google-Maps-Routenlink über die offizielle URL-API (kein API-Key
-// nötig). "optimize:true" lässt Google die Reihenfolge der Zwischenstopps
-// selbst sinnvoll sortieren, statt unsere (nach Entfernung zur Route
-// sortierte, nicht zwingend routentaugliche) Reihenfolge zu übernehmen.
+// nötig). Die Zwischenstopps kommen bereits in Fahrtrichtung sortiert an
+// (siehe routeKm in findSightsAlongRoute), daher OHNE "optimize:true" –
+// das würde Google erlauben, die Reihenfolge wieder umzuwerfen (z. B. den
+// zielnächsten Stopp zuerst anzufahren), obwohl unsere Reihenfolge bereits
+// der tatsächlichen Streckenführung entspricht.
 // Google Maps unterstützt über die URL nur eine begrenzte Anzahl Wegpunkte,
 // daher hart auf 9 gedeckelt.
 function googleMapsRouteLink(from, to, waypointCoords) {
@@ -594,8 +596,7 @@ function googleMapsRouteLink(from, to, waypointCoords) {
     travelmode: 'driving'
   });
   if (waypointCoords.length) {
-    const wp = 'optimize:true|' + waypointCoords.slice(0, 9).map(c => `${c[0]},${c[1]}`).join('|');
-    params.set('waypoints', wp);
+    params.set('waypoints', waypointCoords.slice(0, 9).map(c => `${c[0]},${c[1]}`).join('|'));
   }
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
@@ -898,10 +899,15 @@ function bboxFromSlice(slice, bufferKm) {
 // das dann fälschlich als "nichts gefunden" ankommt. Deshalb wird die
 // Etappe in kurze Abschnitte zerlegt, sodass jede Anfrage klein & schnell
 // bleibt, aber zusammen die GANZE Strecke abgedeckt wird.
-function splitSliceIntoChunks(slice, targetChunkKm, maxChunks) {
-  if (slice.length < 2) return [slice];
+function cumulativeKm(slice) {
   const cum = [0];
   for (let i = 1; i < slice.length; i++) cum.push(cum[i - 1] + haversineKm(slice[i - 1], slice[i]));
+  return cum;
+}
+
+function splitSliceIntoChunks(slice, targetChunkKm, maxChunks) {
+  if (slice.length < 2) return [slice];
+  const cum = cumulativeKm(slice);
   const totalKm = cum[cum.length - 1];
   const chunkCount = Math.min(Math.max(Math.ceil(totalKm / targetChunkKm), 1), maxChunks);
   const chunkKm = totalKm / chunkCount;
@@ -1009,6 +1015,25 @@ async function findSightsAlongRoute(slice, categories, bufferKm, onProgress) {
     seen.add(key);
     merged.push(item);
   }
+
+  // Position jedes Treffers entlang der Etappe bestimmen (nicht zu
+  // verwechseln mit distKm, der seitlichen Entfernung zur Route): dafür wird
+  // pro Treffer der nächstgelegene Punkt auf der GESAMTEN Etappen-Linie
+  // gesucht und dessen kumulierte Streckenkilometer übernommen. So lässt
+  // sich die Liste anschließend in Fahrtrichtung sortieren, statt nach
+  // Nähe zur Route (was sonst zu einer für Google-Maps-Wegpunkte und die
+  // Anzeige unbrauchbaren, zufälligen Reihenfolge führt).
+  const cum = cumulativeKm(slice);
+  const sampleStep = Math.max(Math.floor(slice.length / 60), 1);
+  merged.forEach(item => {
+    let minDist = Infinity, minIdx = 0;
+    for (let i = 0; i < slice.length; i += sampleStep) {
+      const d = haversineKm(slice[i], [item.lat, item.lon]);
+      if (d < minDist) { minDist = d; minIdx = i; }
+    }
+    item.routeKm = cum[minIdx];
+  });
+
   return merged;
 }
 
@@ -1079,10 +1104,17 @@ async function findBestSights(slice, p, onProgress) {
   const preferredCats = p.sights.length ? p.sights : Object.keys(CATEGORY_TAGS);
   let lastError = null, anySuccess = false;
 
+  // Auswahl der besten Treffer erfolgt weiter nach Nähe zur Route (distKm,
+  // schon in findSightsAlongRoute sortiert); die finale Liste wird danach
+  // in Fahrtrichtung (routeKm) sortiert, damit Tageskarte und
+  // Google-Maps-Link die Sehenswürdigkeiten in der Reihenfolge zeigen, in
+  // der man ihnen auf der Etappe tatsächlich begegnet.
+  const byRoute = (a, b) => a.routeKm - b.routeKm;
+
   try {
     const items = await findSightsAlongRoute(slice, preferredCats, bufferKm, onProgress);
     anySuccess = true;
-    if (items.length) return { list: items.slice(0, p.spotsProTag), radiusKm: bufferKm, expanded: !p.sights.length };
+    if (items.length) return { list: items.slice(0, p.spotsProTag).sort(byRoute), radiusKm: bufferKm, expanded: !p.sights.length };
   } catch (e) { lastError = e; }
 
   if (p.sights.length) {
@@ -1090,7 +1122,7 @@ async function findBestSights(slice, p, onProgress) {
     try {
       const items = await findSightsAlongRoute(slice, Object.keys(CATEGORY_TAGS), bufferKm, onProgress);
       anySuccess = true;
-      if (items.length) return { list: items.slice(0, p.spotsProTag), radiusKm: bufferKm, expanded: true, allCategories: true };
+      if (items.length) return { list: items.slice(0, p.spotsProTag).sort(byRoute), radiusKm: bufferKm, expanded: true, allCategories: true };
     } catch (e) { lastError = e; }
   }
 
