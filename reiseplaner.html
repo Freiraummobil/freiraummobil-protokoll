@@ -1152,20 +1152,35 @@ function aiErrorMessage(providerLabel, status) {
   return providerLabel + '-Anfrage fehlgeschlagen (HTTP ' + status + ')' + suffix;
 }
 
-// Ruft die konfigurierte KI-API auf. Bei HTTP 429 (Rate-Limit/Kontingent) wird
-// EINMAL nach kurzer Pause automatisch neu versucht, bevor der Fehler nach
-// oben gereicht wird – kostenlose Kontingente sind oft eng bemessen und ein
-// einzelner Ausreißer soll nicht gleich die ganze Etappe scheitern lassen.
+// Ruft die konfigurierte KI-API auf. Bei HTTP 429 (Rate-Limit/Kontingent) oder
+// einer Zeitüberschreitung wird EINMAL nach kurzer Pause automatisch neu
+// versucht, bevor der Fehler nach oben gereicht wird – kostenlose Kontingente
+// sind oft eng bemessen und ein einzelner Ausreißer soll nicht gleich die
+// ganze Etappe scheitern lassen. thinkingLevel LOW hält die Antwortzeit
+// niedrig, da für die reine Namens-/Beschreibungsliste kein tiefes
+// Reasoning nötig ist (Standard MEDIUM führte sonst öfter zu Timeouts).
 async function callAiProvider(settings, prompt) {
   const providerLabel = 'Gemini';
   for (let attempt = 1; attempt <= 2; attempt++) {
     const model = settings.model || 'gemini-3.6-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
-    const res = await fetchWithTimeout(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json' } })
-    }, 30000);
+    let res;
+    try {
+      res = await fetchWithTimeout(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            thinkingConfig: { thinkingLevel: 'LOW' }
+          }
+        })
+      }, 45000);
+    } catch (e) {
+      if (attempt === 1) { await sleep(1000); continue; }
+      throw e;
+    }
     if (res.ok) {
       const data = await res.json();
       const cand = data.candidates && data.candidates[0];
