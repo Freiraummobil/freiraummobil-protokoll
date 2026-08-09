@@ -823,22 +823,32 @@ function campsiteAmenities(t) {
 
 // ── Sehenswürdigkeiten (Overpass) ──
 const CATEGORY_TAGS = {
-  natur: [['natural', 'waterfall'], ['natural', 'peak'], ['leisure', 'nature_reserve']],
+  natur: [['natural', 'waterfall'], ['natural', 'peak'], ['leisure', 'nature_reserve'], ['natural', 'cave_entrance'], ['natural', 'glacier'], ['boundary', 'national_park']],
   aussicht: [['tourism', 'viewpoint']],
-  kultur: [['historic', 'castle'], ['historic', 'monument'], ['historic', 'ruins'], ['historic', 'memorial'], ['tourism', 'museum'], ['tourism', 'artwork']],
-  strand: [['natural', 'beach']],
+  kultur: [['historic', 'castle'], ['historic', 'monument'], ['historic', 'ruins'], ['historic', 'memorial'], ['tourism', 'museum'], ['tourism', 'artwork'], ['historic', 'archaeological_site'], ['historic', 'fort'], ['tourism', 'gallery']],
+  strand: [['natural', 'beach'], ['leisure', 'marina']],
   staedte: [['tourism', 'attraction']],
-  aktivitaet: [['leisure', 'water_park'], ['tourism', 'theme_park'], ['leisure', 'park']]
+  aktivitaet: [['leisure', 'water_park'], ['tourism', 'theme_park'], ['leisure', 'park'], ['tourism', 'zoo'], ['tourism', 'aquarium'], ['leisure', 'garden']]
 };
 function categoryLabel(tags) {
   if (tags.natural === 'waterfall') return 'Wasserfall';
   if (tags.natural === 'peak') return 'Gipfel';
   if (tags.natural === 'beach') return 'Strand';
+  if (tags.natural === 'cave_entrance') return 'Höhle';
+  if (tags.natural === 'glacier') return 'Gletscher';
+  if (tags.boundary === 'national_park') return 'Nationalpark';
   if (tags.leisure === 'nature_reserve') return 'Naturschutzgebiet';
+  if (tags.leisure === 'marina') return 'Yachthafen';
+  if (tags.leisure === 'garden') return 'Garten';
   if (tags.tourism === 'viewpoint') return 'Aussichtspunkt';
+  if (tags.historic === 'archaeological_site') return 'Archäologische Stätte';
+  if (tags.historic === 'fort') return 'Festung';
   if (tags.historic) return 'Historisch';
   if (tags.tourism === 'museum') return 'Museum';
+  if (tags.tourism === 'gallery') return 'Galerie';
   if (tags.tourism === 'artwork') return 'Kunstwerk';
+  if (tags.tourism === 'zoo') return 'Zoo';
+  if (tags.tourism === 'aquarium') return 'Aquarium';
   if (tags.leisure === 'water_park') return 'Wasserpark';
   if (tags.tourism === 'theme_park') return 'Freizeitpark';
   if (tags.leisure === 'park') return 'Park';
