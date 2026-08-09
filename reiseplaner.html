@@ -222,6 +222,13 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .sight-item .sight-meta { font-size: 11.5px; color: #5c6b2f; font-weight: 600; }
 .sight-item .sight-desc { font-size: 12px; color: var(--ink); opacity: 0.8; line-height: 1.4; margin-top: 6px; }
 .sight-item .spot-link { color: var(--accent-dark); }
+.sight-item-bucket { border: 2px solid var(--accent); }
+
+.bucket-remove {
+  display: inline-flex; align-items: center; gap: 4px; margin-top: 7px; font-size: 12px;
+  color: var(--red); background: none; border: none; padding: 0; font-weight: 700; cursor: pointer;
+}
+.bucket-remove .icon { width: 12px; height: 12px; }
 
 .footnote { font-size: 11px; color: var(--ink-soft); line-height: 1.5; padding: 4px 4px 20px; text-align: center; }
 
@@ -264,8 +271,9 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 <div class="tab-nav" id="tabNav">
   <button class="tab-btn active" onclick="goTo(0)"><span class="tab-icon" data-icon="van"></span>Fahrzeug</button>
   <button class="tab-btn" onclick="goTo(1)"><span class="tab-icon" data-icon="settings"></span>Präferenzen</button>
-  <button class="tab-btn" onclick="goTo(2)"><span class="tab-icon" data-icon="compass"></span>Route</button>
-  <button class="tab-btn" onclick="goTo(3)"><span class="tab-icon" data-icon="calendar"></span>Reiseplan</button>
+  <button class="tab-btn" onclick="goTo(2)"><span class="tab-icon" data-icon="star"></span>Wunschliste</button>
+  <button class="tab-btn" onclick="goTo(3)"><span class="tab-icon" data-icon="compass"></span>Route</button>
+  <button class="tab-btn" onclick="goTo(4)"><span class="tab-icon" data-icon="calendar"></span>Reiseplan</button>
 </div>
 
 <!-- MAIN -->
@@ -359,12 +367,37 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
     <div class="btn-bar">
       <button class="btn-prev" onclick="goTo(0)">← Zurück</button>
-      <button class="btn-next" onclick="goTo(2)">Weiter: Route →</button>
+      <button class="btn-next" onclick="goTo(2)">Weiter: Wunschliste →</button>
     </div>
   </div>
 
-  <!-- ── 2: ROUTE ── -->
+  <!-- ── 2: WUNSCHLISTE ── -->
   <div class="section" id="sec2">
+    <div class="sec-header">
+      <h2>Wunschliste</h2>
+      <p>Sehenswürdigkeiten, die du unbedingt sehen willst – werden bei der Etappenplanung bevorzugt vor den automatischen Vorschlägen aus OSM/Wikipedia eingebaut.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci" data-icon="star"></span>Ort oder Sehenswürdigkeit hinzufügen</div>
+      <div class="field"><label>Name / Ort</label><input type="text" id="bucket-query" placeholder="z.B. Eden Project, Cornwall" onkeydown="if(event.key==='Enter'){event.preventDefault();addBucketItem();}"></div>
+      <div class="field"><label>Notiz (optional)</label><input type="text" id="bucket-note" placeholder="z.B. Unbedingt Zeiteinlass vorab buchen"></div>
+      <button class="btn-full btn-primary" id="btnBucketAdd" onclick="addBucketItem()"><span class="icon" data-icon="star"></span>Zur Wunschliste hinzufügen</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ci" data-icon="landscape"></span>Deine Wunschliste</div>
+      <div id="bucketList"></div>
+    </div>
+
+    <div class="btn-bar">
+      <button class="btn-prev" onclick="goTo(1)">← Zurück</button>
+      <button class="btn-next" onclick="goTo(3)">Weiter: Route →</button>
+    </div>
+  </div>
+
+  <!-- ── 3: ROUTE ── -->
+  <div class="section" id="sec3">
     <div class="sec-header">
       <h2>Start, Ziel &amp; Zeitraum</h2>
       <p>Nur das hier musst du für jede neue Reise eingeben.</p>
@@ -389,11 +422,11 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
     <button class="btn-full btn-primary" id="btnCompute" onclick="computeTrip()"><span class="icon" data-icon="compass"></span>Reiseplan berechnen</button>
 
-    <div class="btn-bar"><button class="btn-prev" onclick="goTo(1)">← Zurück</button></div>
+    <div class="btn-bar"><button class="btn-prev" onclick="goTo(2)">← Zurück</button></div>
   </div>
 
-  <!-- ── 3: REISEPLAN ── -->
-  <div class="section" id="sec3">
+  <!-- ── 4: REISEPLAN ── -->
+  <div class="section" id="sec4">
     <div class="sec-header">
       <h2>Dein Reiseplan</h2>
       <p>Vorschläge für Übernachtungen und Sehenswürdigkeiten je Etappe.</p>
@@ -419,7 +452,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
     <div class="footnote">Kartendaten &amp; Ortssuche: © OpenStreetMap-Mitwirkende · Routing: OSRM · Stellplatz-/Spot-Daten: Overpass API. Alle Angaben ohne Gewähr – bitte Vorschläge vor Ort prüfen (Höhe, Gewicht, Öffnungszeiten).</div>
 
-    <div class="btn-bar"><button class="btn-prev" onclick="goTo(2)">← Zurück zur Route</button></div>
+    <div class="btn-bar"><button class="btn-prev" onclick="goTo(3)">← Zurück zur Route</button></div>
   </div>
 
 </div><!-- /main -->
@@ -434,6 +467,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 const PROFILE_KEY = 'fm_reiseplaner_profil_v1';
 const PREFS_KEY = 'fm_reiseplaner_praeferenzen_v1';
 const TRIP_KEY = 'fm_reiseplaner_letzte_reise_v1';
+const BUCKETLIST_KEY = 'fm_reiseplaner_wunschliste_v1';
 
 const CHIP_GROUPS = {
   stellplatzTyp: { containerId: 'chips-stellplatztyp', options: [
@@ -554,6 +588,66 @@ function loadTripInputs() {
   } catch (e) { /* ignore corrupt storage */ }
 }
 
+// ── Wunschliste ──
+// Frei vom Nutzer gepflegte Liste "unbedingt sehen wollen"-Sehenswürdigkeiten
+// (siehe BUCKET_BUFFER_KM & bucketItemsForSlice weiter unten): wird bei der
+// Etappenplanung vor den automatischen OSM/Wikipedia-Vorschlägen berücksichtigt.
+let bucketlist = [];
+
+function saveBucketlist() {
+  localStorage.setItem(BUCKETLIST_KEY, JSON.stringify(bucketlist));
+}
+function loadBucketlist() {
+  try {
+    const raw = localStorage.getItem(BUCKETLIST_KEY);
+    if (raw) bucketlist = JSON.parse(raw);
+  } catch (e) { /* ignore corrupt storage */ }
+  renderBucketlist();
+}
+async function addBucketItem() {
+  const query = v('bucket-query');
+  if (!query) { showToast('Bitte einen Ort oder eine Sehenswürdigkeit eingeben'); return; }
+  const note = v('bucket-note');
+  const btn = document.getElementById('btnBucketAdd');
+  btn.disabled = true;
+  try {
+    const found = await geocode(query);
+    if (!found) { showToast('„' + query + '“ wurde nicht gefunden'); return; }
+    bucketlist.push({
+      id: Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+      label: query, displayName: found.name, lat: found.lat, lon: found.lon, note: note || null
+    });
+    saveBucketlist();
+    renderBucketlist();
+    setV('bucket-query', ''); setV('bucket-note', '');
+    showToast('Zur Wunschliste hinzugefügt');
+  } catch (e) {
+    showToast('Suche fehlgeschlagen: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+function removeBucketItem(id) {
+  bucketlist = bucketlist.filter(b => b.id !== id);
+  saveBucketlist();
+  renderBucketlist();
+}
+function renderBucketlist() {
+  const el = document.getElementById('bucketList');
+  if (!el) return;
+  if (!bucketlist.length) {
+    el.innerHTML = `<span class="text-muted">Noch keine Einträge – füge oben Orte oder Sehenswürdigkeiten hinzu, die auf jeden Fall in deine Reise eingebaut werden sollen.</span>`;
+    return;
+  }
+  el.innerHTML = bucketlist.map(b => `
+    <div class="spot-item">
+      <strong>${icon('star')}${escapeHtml(b.label)}</strong>
+      <span>${escapeHtml(shortName(b.displayName))}</span>
+      ${b.note ? `<div class="sight-desc">${escapeHtml(b.note)}</div>` : ''}
+      <button type="button" class="bucket-remove" onclick="removeBucketItem('${b.id}')">${icon('trash', 'icon-sm')}Entfernen</button>
+    </div>`).join('');
+}
+
 // ══════════════════════════════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════════════════════════════
@@ -563,7 +657,7 @@ function goTo(idx) {
   window.scrollTo(0, 0);
   const tabs = document.querySelectorAll('.tab-btn');
   if (tabs[idx]) tabs[idx].scrollIntoView({ inline: 'center', behavior: 'smooth' });
-  if (idx === 3 && map) setTimeout(() => map.invalidateSize(), 150);
+  if (idx === 4 && map) setTimeout(() => map.invalidateSize(), 150);
 }
 
 function showToast(msg, dur = 3500) {
@@ -628,7 +722,8 @@ const ICON_PATHS = {
   tag: '<path d="M12.6 3H5a2 2 0 0 0-2 2v7.6c0 .5.2 1 .6 1.4l8.4 8.4c.8.8 2 .8 2.8 0l6-6c.8-.8.8-2 0-2.8L12.4 3.6c-.4-.4-.9-.6-1.4-.6z"/><circle cx="8" cy="8" r="1.4"/>',
   warning: '<path d="M12 3 2 20h20z" stroke-linejoin="round"/><path d="M12 10v4M12 17h.01"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 8v.01"/>',
-  externalLink: '<path d="M7 17 17 7M9 7h8v8"/>'
+  externalLink: '<path d="M7 17 17 7M9 7h8v8"/>',
+  trash: '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/><path d="M10 11v6M14 11v6"/>'
 };
 function icon(name, cls) {
   const inner = ICON_PATHS[name] || '';
@@ -905,6 +1000,46 @@ function cumulativeKm(slice) {
   return cum;
 }
 
+// Findet den nächstgelegenen (gesampelten) Punkt einer Etappen-Linie zu
+// einer Koordinate und liefert sowohl den seitlichen Abstand (distKm) als
+// auch die kumulierten Streckenkilometer an dieser Stelle (routeKm) zurück.
+function projectOntoRoute(slice, cum, lat, lon) {
+  const step = Math.max(Math.floor(slice.length / 60), 1);
+  let minDist = Infinity, minIdx = 0;
+  for (let i = 0; i < slice.length; i += step) {
+    const d = haversineKm(slice[i], [lat, lon]);
+    if (d < minDist) { minDist = d; minIdx = i; }
+  }
+  return { distKm: minDist, routeKm: cum[minIdx] };
+}
+
+// Wunschliste-Treffer werden bewusst mit einem größeren Radius gesucht als
+// die automatischen Vorschläge (siehe umwegKm-Präferenz): Diese Orte hat
+// der Nutzer gezielt ausgewählt, sie sollen nicht an einer knapp
+// bemessenen "akzeptabler Umweg"-Einstellung für automatische Funde
+// scheitern.
+const BUCKET_BUFFER_KM = 60;
+
+function bucketItemsForSlice(slice) {
+  if (!bucketlist.length) return [];
+  const cum = cumulativeKm(slice);
+  const matches = [];
+  bucketlist.forEach(b => {
+    const proj = projectOntoRoute(slice, cum, b.lat, b.lon);
+    if (proj.distKm <= BUCKET_BUFFER_KM) {
+      matches.push({
+        name: b.label, lat: b.lat, lon: b.lon, category: 'Wunschliste',
+        distKm: proj.distKm, routeKm: proj.routeKm,
+        description: b.note || null,
+        link: `https://www.openstreetmap.org/?mlat=${b.lat}&mlon=${b.lon}#map=15/${b.lat}/${b.lon}`,
+        bucket: true
+      });
+    }
+  });
+  matches.sort((a, b) => a.routeKm - b.routeKm);
+  return matches;
+}
+
 function splitSliceIntoChunks(slice, targetChunkKm, maxChunks) {
   if (slice.length < 2) return [slice];
   const cum = cumulativeKm(slice);
@@ -1017,22 +1152,12 @@ async function findSightsAlongRoute(slice, categories, bufferKm, onProgress) {
   }
 
   // Position jedes Treffers entlang der Etappe bestimmen (nicht zu
-  // verwechseln mit distKm, der seitlichen Entfernung zur Route): dafür wird
-  // pro Treffer der nächstgelegene Punkt auf der GESAMTEN Etappen-Linie
-  // gesucht und dessen kumulierte Streckenkilometer übernommen. So lässt
+  // verwechseln mit distKm, der seitlichen Entfernung zur Route): so lässt
   // sich die Liste anschließend in Fahrtrichtung sortieren, statt nach
   // Nähe zur Route (was sonst zu einer für Google-Maps-Wegpunkte und die
   // Anzeige unbrauchbaren, zufälligen Reihenfolge führt).
   const cum = cumulativeKm(slice);
-  const sampleStep = Math.max(Math.floor(slice.length / 60), 1);
-  merged.forEach(item => {
-    let minDist = Infinity, minIdx = 0;
-    for (let i = 0; i < slice.length; i += sampleStep) {
-      const d = haversineKm(slice[i], [item.lat, item.lon]);
-      if (d < minDist) { minDist = d; minIdx = i; }
-    }
-    item.routeKm = cum[minIdx];
-  });
+  merged.forEach(item => { item.routeKm = projectOntoRoute(slice, cum, item.lat, item.lon).routeKm; });
 
   return merged;
 }
@@ -1104,17 +1229,38 @@ async function findBestSights(slice, p, onProgress) {
   const preferredCats = p.sights.length ? p.sights : Object.keys(CATEGORY_TAGS);
   let lastError = null, anySuccess = false;
 
-  // Auswahl der besten Treffer erfolgt weiter nach Nähe zur Route (distKm,
-  // schon in findSightsAlongRoute sortiert); die finale Liste wird danach
-  // in Fahrtrichtung (routeKm) sortiert, damit Tageskarte und
-  // Google-Maps-Link die Sehenswürdigkeiten in der Reihenfolge zeigen, in
-  // der man ihnen auf der Etappe tatsächlich begegnet.
-  const byRoute = (a, b) => a.routeKm - b.routeKm;
+  // Wunschliste-Treffer sind vom Nutzer bewusst ausgewählt und werden immer
+  // eingebaut, unabhängig von "Spots pro Tag" – die automatischen
+  // OSM/Wikipedia-Vorschläge füllen danach nur noch die verbleibenden
+  // Plätze auf (falls welche übrig sind), statt die Wunschliste zu
+  // verdrängen.
+  const bucketMatches = bucketItemsForSlice(slice);
+  const remainingSlots = Math.max(p.spotsProTag - bucketMatches.length, 0);
+  const bucketKeys = new Set(bucketMatches.map(b => b.name.trim().toLowerCase()));
+
+  // Finale Liste wird in Fahrtrichtung (routeKm) sortiert, damit Tageskarte
+  // und Google-Maps-Link die Sehenswürdigkeiten in der Reihenfolge zeigen,
+  // in der man ihnen auf der Etappe tatsächlich begegnet.
+  const finalize = (autoItems, radiusKm, expanded, allCategories) => {
+    const seen = new Set(bucketKeys);
+    const filteredAuto = autoItems.filter(it => {
+      const key = it.name.trim().toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    const list = [...bucketMatches, ...filteredAuto.slice(0, remainingSlots)].sort((a, b) => a.routeKm - b.routeKm);
+    return { list, radiusKm, expanded: !!expanded, allCategories: !!allCategories };
+  };
+
+  if (remainingSlots === 0) {
+    return finalize([], bufferKm, false);
+  }
 
   try {
     const items = await findSightsAlongRoute(slice, preferredCats, bufferKm, onProgress);
     anySuccess = true;
-    if (items.length) return { list: items.slice(0, p.spotsProTag).sort(byRoute), radiusKm: bufferKm, expanded: !p.sights.length };
+    if (items.length || bucketMatches.length) return finalize(items, bufferKm, !p.sights.length);
   } catch (e) { lastError = e; }
 
   if (p.sights.length) {
@@ -1122,12 +1268,12 @@ async function findBestSights(slice, p, onProgress) {
     try {
       const items = await findSightsAlongRoute(slice, Object.keys(CATEGORY_TAGS), bufferKm, onProgress);
       anySuccess = true;
-      if (items.length) return { list: items.slice(0, p.spotsProTag).sort(byRoute), radiusKm: bufferKm, expanded: true, allCategories: true };
+      if (items.length || bucketMatches.length) return finalize(items, bufferKm, true, true);
     } catch (e) { lastError = e; }
   }
 
-  if (!anySuccess && lastError) throw lastError;
-  return { list: [], radiusKm: bufferKm, expanded: true };
+  if (!anySuccess && lastError && !bucketMatches.length) throw lastError;
+  return finalize([], bufferKm, true);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1164,7 +1310,7 @@ async function computeTrip() {
 
   saveTripInputs();
   savePrefs();
-  goTo(3);
+  goTo(4);
   setPlanLoading(true);
 
   try {
@@ -1317,8 +1463,8 @@ function dayCardHtml(day, zielPoint) {
       ? `<div class="field-hint">${icon('info', 'icon-hint')} ${day.sightAllCategories ? 'Nichts zu deinen gewählten Interessen gefunden – zeige allgemeine Sehenswürdigkeiten' : 'Umkreis erweitert'} auf ${day.sightRadiusKm} km.</div>`
       : '';
     sightsHtml = hint + day.sights.map((s, i) => `
-      <div class="sight-item" id="sight-${day.index}-${i}">
-        <strong>${icon('pin')}${escapeHtml(s.name)}</strong>
+      <div class="sight-item${s.bucket ? ' sight-item-bucket' : ''}" id="sight-${day.index}-${i}">
+        <strong>${icon(s.bucket ? 'star' : 'pin')}${escapeHtml(s.name)}</strong>
         <span class="sight-meta">${escapeHtml(s.category)} · ${s.distKm.toFixed(1)} km von der Route</span>
         ${s.description ? `<div class="sight-desc">${escapeHtml(s.description)}</div>` : ''}
         <a class="spot-link" href="${escapeHtml(s.link || ('https://www.openstreetmap.org/?mlat=' + s.lat + '&mlon=' + s.lon + '#map=17/' + s.lat + '/' + s.lon))}" target="_blank" rel="noopener">Mehr erfahren ${icon('externalLink', 'icon-sm')}</a>
@@ -1351,6 +1497,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadProfile();
   loadPrefs();
   loadTripInputs();
+  loadBucketlist();
 
   document.addEventListener('change', e => {
     if (PROFILE_FIELDS.includes(e.target.id)) saveProfile();
