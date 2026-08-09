@@ -126,6 +126,8 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
   outline: none; border-color: var(--accent); background: #fff;
 }
 .field-hint { font-size: 11px; color: var(--ink-soft); margin-top: 5px; line-height: 1.4; }
+.checkbox-field label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; text-transform: none; color: var(--text); letter-spacing: normal; }
+.checkbox-field input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); flex-shrink: 0; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 
@@ -365,6 +367,20 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
       </div>
     </div>
 
+    <div class="card">
+      <div class="card-title"><span class="ci" data-icon="star"></span>KI-Vorschläge (optional)</div>
+      <div class="field-hint">Nutzt eine KI mit deinem eigenen API-Key als zusätzliche Quelle für Sehenswürdigkeiten entlang der Etappe – oft ausführlicher als OSM/Wikipedia. Der Key wird nur lokal auf diesem Gerät gespeichert und ausschließlich direkt an den gewählten Anbieter gesendet, nie an uns oder Dritte. Kosten fallen über dein eigenes Konto beim Anbieter an – bitte den Key nirgendwo teilen.</div>
+      <div class="field checkbox-field"><label><input type="checkbox" id="ai-enabled"> KI-Vorschläge aktivieren</label></div>
+      <div class="field"><label>Anbieter</label>
+        <select id="ai-provider">
+          <option value="openai">OpenAI (GPT)</option>
+          <option value="gemini">Google Gemini</option>
+        </select>
+      </div>
+      <div class="field"><label>API-Key</label><input type="password" id="ai-apikey" placeholder="sk-… oder AIza…" autocomplete="off"></div>
+      <div class="field"><label>Modell (optional)</label><input type="text" id="ai-model" placeholder="z.B. gpt-4o-mini oder gemini-2.0-flash"></div>
+    </div>
+
     <div class="btn-bar">
       <button class="btn-prev" onclick="goTo(0)">← Zurück</button>
       <button class="btn-next" onclick="goTo(2)">Weiter: Wunschliste →</button>
@@ -468,6 +484,7 @@ const PROFILE_KEY = 'fm_reiseplaner_profil_v1';
 const PREFS_KEY = 'fm_reiseplaner_praeferenzen_v1';
 const TRIP_KEY = 'fm_reiseplaner_letzte_reise_v1';
 const BUCKETLIST_KEY = 'fm_reiseplaner_wunschliste_v1';
+const AI_KEY = 'fm_reiseplaner_ki_v1';
 
 const CHIP_GROUPS = {
   stellplatzTyp: { containerId: 'chips-stellplatztyp', options: [
@@ -646,6 +663,30 @@ function renderBucketlist() {
       ${b.note ? `<div class="sight-desc">${escapeHtml(b.note)}</div>` : ''}
       <button type="button" class="bucket-remove" onclick="removeBucketItem('${b.id}')">${icon('trash', 'icon-sm')}Entfernen</button>
     </div>`).join('');
+}
+
+// ── KI-Vorschläge (optional, eigener API-Key) ──
+// Der Key wird ausschließlich lokal gespeichert und nur direkt vom Browser
+// aus an den gewählten Anbieter geschickt (siehe callAiProvider) – nie an
+// uns oder einen anderen Dienst.
+let aiSettings = { enabled: false, provider: 'openai', apiKey: '', model: '' };
+
+function saveAiSettings() {
+  aiSettings.enabled = !!document.getElementById('ai-enabled').checked;
+  aiSettings.provider = v('ai-provider') || 'openai';
+  aiSettings.apiKey = v('ai-apikey');
+  aiSettings.model = v('ai-model');
+  localStorage.setItem(AI_KEY, JSON.stringify(aiSettings));
+}
+function loadAiSettings() {
+  try {
+    const raw = localStorage.getItem(AI_KEY);
+    if (raw) aiSettings = Object.assign(aiSettings, JSON.parse(raw));
+  } catch (e) { /* ignore corrupt storage */ }
+  document.getElementById('ai-enabled').checked = !!aiSettings.enabled;
+  setV('ai-provider', aiSettings.provider);
+  setV('ai-apikey', aiSettings.apiKey);
+  setV('ai-model', aiSettings.model);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1040,6 +1081,90 @@ function bucketItemsForSlice(slice) {
   return matches;
 }
 
+// Optionale vierte Quelle für Sehenswürdigkeiten: eine KI (mit vom Nutzer
+// selbst hinterlegtem API-Key) wird nach Orten entlang der Etappe gefragt.
+// Weil KI-Antworten Koordinaten erfinden können, liefert die KI bewusst NUR
+// Namen + Kurzbeschreibung; die tatsächliche Position wird wie bei der
+// Wunschliste über die normale Geokodierung (Nominatim) ermittelt und dann
+// geometrisch gegen die echte Etappen-Linie geprüft (projectOntoRoute).
+// Treffer, die die KI nur behauptet, die aber nicht wirklich in der Nähe
+// der Route liegen oder sich nicht geokodieren lassen, werden verworfen.
+function sightCategoryLabels(catKeys) {
+  const map = {};
+  CHIP_GROUPS.sights.options.forEach(o => { map[o.v] = o.l; });
+  return catKeys.map(k => map[k] || k);
+}
+
+function buildAiPrompt(from, to, categories, bufferKm, maxCount) {
+  const catText = categories.length ? ` mit Schwerpunkt auf: ${sightCategoryLabels(categories).join(', ')}.` : '';
+  return `Ich reise mit einem Wohnmobil entlang der Fahrstrecke (nicht Luftlinie) von den GPS-Koordinaten ${from[0].toFixed(4)},${from[1].toFixed(4)} zu ${to[0].toFixed(4)},${to[1].toFixed(4)}. ` +
+    `Nenne mir bis zu ${maxCount} reale, existierende Sehenswürdigkeiten oder Orte, die höchstens ${bufferKm} km von dieser Fahrstrecke entfernt liegen.${catText} ` +
+    `Antworte AUSSCHLIESSLICH mit kompaktem JSON in exakt diesem Format, ohne Markdown-Codefences, ohne zusätzlichen Text: ` +
+    `{"orte":[{"name":"Offizieller, eindeutig auffindbarer Name","beschreibung":"Ein bis zwei Sätze auf Deutsch"}]}`;
+}
+
+async function callAiProvider(settings, prompt) {
+  if (settings.provider === 'gemini') {
+    const model = settings.model || 'gemini-2.0-flash';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
+    const res = await fetchWithTimeout(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json' } })
+    }, 30000);
+    if (!res.ok) throw new Error('Gemini-Anfrage fehlgeschlagen (HTTP ' + res.status + ')');
+    const data = await res.json();
+    const cand = data.candidates && data.candidates[0];
+    return cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
+  }
+  // Default: OpenAI-kompatible Chat-Completions-API.
+  const model = settings.model || 'gpt-4o-mini';
+  const res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.apiKey },
+    body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' } })
+  }, 30000);
+  if (!res.ok) throw new Error('OpenAI-Anfrage fehlgeschlagen (HTTP ' + res.status + ')');
+  const data = await res.json();
+  return data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+}
+
+function parseAiPlaces(raw) {
+  if (!raw) return [];
+  let text = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+  try {
+    const data = JSON.parse(text);
+    const list = Array.isArray(data) ? data : (data.orte || data.places || []);
+    return list.filter(p => p && p.name).slice(0, 12);
+  } catch (e) {
+    return [];
+  }
+}
+
+async function findAiSights(slice, settings, categories, bufferKm) {
+  if (!settings.enabled || !settings.apiKey) return [];
+  const cum = cumulativeKm(slice);
+  const prompt = buildAiPrompt(slice[0], slice[slice.length - 1], categories, bufferKm, 8);
+  const raw = await callAiProvider(settings, prompt);
+  const places = parseAiPlaces(raw);
+  const results = [];
+  for (const place of places) {
+    await sleep(1100); // Nominatim-Nutzungsrichtlinie: max. 1 Anfrage/Sekunde
+    let found;
+    try { found = await geocode(place.name); } catch (e) { continue; }
+    if (!found) continue;
+    const proj = projectOntoRoute(slice, cum, found.lat, found.lon);
+    if (proj.distKm > bufferKm) continue; // KI-Behauptung stimmt geometrisch nicht – verwerfen
+    results.push({
+      name: place.name, lat: found.lat, lon: found.lon, category: 'KI-Vorschlag',
+      distKm: proj.distKm, routeKm: proj.routeKm,
+      description: place.beschreibung || null,
+      link: `https://www.openstreetmap.org/?mlat=${found.lat}&mlon=${found.lon}#map=15/${found.lat}/${found.lon}`
+    });
+  }
+  return results;
+}
+
 function splitSliceIntoChunks(slice, targetChunkKm, maxChunks) {
   if (slice.length < 2) return [slice];
   const cum = cumulativeKm(slice);
@@ -1257,11 +1382,22 @@ async function findBestSights(slice, p, onProgress) {
     return finalize([], bufferKm, false);
   }
 
+  // KI-Vorschläge (falls aktiviert) laufen parallel zur ersten OSM/Wikipedia-
+  // Runde mit, statt die Etappenplanung zusätzlich zu verzögern; ein
+  // Fehlschlag (falscher Key, Anbieter nicht erreichbar, kein CORS-Zugriff
+  // vom Browser aus) darf die übrigen Quellen nicht blockieren.
+  const aiPromise = findAiSights(slice, aiSettings, preferredCats, bufferKm).catch(() => []);
+
   try {
     const items = await findSightsAlongRoute(slice, preferredCats, bufferKm, onProgress);
     anySuccess = true;
-    if (items.length || bucketMatches.length) return finalize(items, bufferKm, !p.sights.length);
-  } catch (e) { lastError = e; }
+    const aiItems = await aiPromise;
+    if (items.length || aiItems.length || bucketMatches.length) return finalize([...items, ...aiItems], bufferKm, !p.sights.length);
+  } catch (e) {
+    lastError = e;
+    const aiItems = await aiPromise;
+    if (aiItems.length || bucketMatches.length) return finalize(aiItems, bufferKm, !p.sights.length);
+  }
 
   if (p.sights.length) {
     await sleep(400);
@@ -1310,6 +1446,7 @@ async function computeTrip() {
 
   saveTripInputs();
   savePrefs();
+  saveAiSettings();
   goTo(4);
   setPlanLoading(true);
 
@@ -1498,11 +1635,13 @@ document.addEventListener('DOMContentLoaded', () => {
   loadPrefs();
   loadTripInputs();
   loadBucketlist();
+  loadAiSettings();
 
   document.addEventListener('change', e => {
     if (PROFILE_FIELDS.includes(e.target.id)) saveProfile();
     if (['pref-km', 'pref-stunden', 'pref-umweg', 'pref-spots'].includes(e.target.id)) savePrefs();
     if (['start-ort', 'ziel-ort', 'reise-start', 'reise-ende'].includes(e.target.id)) saveTripInputs();
+    if (['ai-enabled', 'ai-provider', 'ai-apikey', 'ai-model'].includes(e.target.id)) saveAiSettings();
   });
 });
 </script>
