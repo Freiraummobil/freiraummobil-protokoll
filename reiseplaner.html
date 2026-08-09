@@ -376,12 +376,11 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
       <div class="field checkbox-field"><label><input type="checkbox" id="ai-enabled"> KI-Vorschläge aktivieren</label></div>
       <div class="field"><label>Anbieter</label>
         <select id="ai-provider">
-          <option value="openai">OpenAI (GPT)</option>
           <option value="gemini">Google Gemini</option>
         </select>
       </div>
-      <div class="field"><label>API-Key</label><input type="password" id="ai-apikey" placeholder="sk-… oder AIza…" autocomplete="off"></div>
-      <div class="field"><label>Modell (optional)</label><input type="text" id="ai-model" placeholder="z.B. gpt-4o-mini oder gemini-2.0-flash"></div>
+      <div class="field"><label>API-Key</label><input type="password" id="ai-apikey" placeholder="AIza…" autocomplete="off"></div>
+      <div class="field"><label>Modell (optional)</label><input type="text" id="ai-model" placeholder="z.B. gemini-2.0-flash"></div>
     </div>
 
     <div class="btn-bar">
@@ -674,11 +673,11 @@ function renderBucketlist() {
 // Der Key wird ausschließlich lokal gespeichert und nur direkt vom Browser
 // aus an den gewählten Anbieter geschickt (siehe callAiProvider) – nie an
 // uns oder einen anderen Dienst.
-let aiSettings = { enabled: false, provider: 'openai', apiKey: '', model: '' };
+let aiSettings = { enabled: false, provider: 'gemini', apiKey: '', model: '' };
 
 function saveAiSettings() {
   aiSettings.enabled = !!document.getElementById('ai-enabled').checked;
-  aiSettings.provider = v('ai-provider') || 'openai';
+  aiSettings.provider = v('ai-provider') || 'gemini';
   aiSettings.apiKey = v('ai-apikey');
   aiSettings.model = v('ai-model');
   localStorage.setItem(AI_KEY, JSON.stringify(aiSettings));
@@ -1117,33 +1116,19 @@ function aiErrorMessage(providerLabel, status) {
 // oben gereicht wird – kostenlose Kontingente sind oft eng bemessen und ein
 // einzelner Ausreißer soll nicht gleich die ganze Etappe scheitern lassen.
 async function callAiProvider(settings, prompt) {
-  const isGemini = settings.provider === 'gemini';
-  const providerLabel = isGemini ? 'Gemini' : 'OpenAI';
+  const providerLabel = 'Gemini';
   for (let attempt = 1; attempt <= 2; attempt++) {
-    let res;
-    if (isGemini) {
-      const model = settings.model || 'gemini-2.0-flash';
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
-      res = await fetchWithTimeout(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json' } })
-      }, 30000);
-    } else {
-      const model = settings.model || 'gpt-4o-mini';
-      res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.apiKey },
-        body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' } })
-      }, 30000);
-    }
+    const model = settings.model || 'gemini-2.0-flash';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
+    const res = await fetchWithTimeout(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json' } })
+    }, 30000);
     if (res.ok) {
       const data = await res.json();
-      if (isGemini) {
-        const cand = data.candidates && data.candidates[0];
-        return cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
-      }
-      return data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      const cand = data.candidates && data.candidates[0];
+      return cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
     }
     if (res.status === 429 && attempt === 1) { await sleep(4000); continue; }
     throw new Error(aiErrorMessage(providerLabel, res.status));
