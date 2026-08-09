@@ -198,6 +198,13 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .spot-item .sight-chip { margin: 4px 4px 0 0; }
 .spot-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 7px; font-size: 12px; color: var(--accent-dark); text-decoration: none; font-weight: 700; }
 .spot-link .icon { width: 12px; height: 12px; }
+.day-maps-link {
+  display: inline-flex; align-items: center; gap: 6px; margin: 10px 0 2px;
+  background: var(--accent-light); color: #3a4118; text-decoration: none;
+  font-size: 12px; font-weight: 700; padding: 7px 12px; border-radius: var(--radius-pill);
+}
+.day-maps-link .icon { color: #3a4118; }
+.day-maps-link .icon:last-child { width: 12px; height: 12px; }
 .spot-error { color: var(--red); font-size: 12.5px; }
 .text-muted { color: var(--ink-soft); font-size: 12.5px; }
 
@@ -572,6 +579,26 @@ function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 function shortName(displayName) { return (displayName || '').split(',').slice(0, 2).join(', '); }
+
+// Baut einen Google-Maps-Routenlink über die offizielle URL-API (kein API-Key
+// nötig). "optimize:true" lässt Google die Reihenfolge der Zwischenstopps
+// selbst sinnvoll sortieren, statt unsere (nach Entfernung zur Route
+// sortierte, nicht zwingend routentaugliche) Reihenfolge zu übernehmen.
+// Google Maps unterstützt über die URL nur eine begrenzte Anzahl Wegpunkte,
+// daher hart auf 9 gedeckelt.
+function googleMapsRouteLink(from, to, waypointCoords) {
+  const params = new URLSearchParams({
+    api: '1',
+    origin: `${from[0]},${from[1]}`,
+    destination: `${to[0]},${to[1]}`,
+    travelmode: 'driving'
+  });
+  if (waypointCoords.length) {
+    const wp = 'optimize:true|' + waypointCoords.slice(0, 9).map(c => `${c[0]},${c[1]}`).join('|');
+    params.set('waypoints', wp);
+  }
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
 
 // ══════════════════════════════════════════════════════════════
 // ICONS (schlichte Strich-Icons statt Emoji)
@@ -1266,12 +1293,16 @@ function dayCardHtml(day, zielPoint) {
       </div>`).join('');
   }
 
+  const mapsWaypoints = (day.sights || []).map(s => [s.lat, s.lon]);
+  const mapsLink = googleMapsRouteLink(day.from, day.to, mapsWaypoints);
+
   return `
     <div class="day-card">
       <div class="day-head">
         <div class="day-badge">${day.isLast ? icon('flag') : day.index}</div>
         <div><strong>Tag ${day.index}</strong><span class="day-km">${Math.round(day.distanceKm)} km Fahrstrecke</span></div>
       </div>
+      <a class="day-maps-link" href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener">${icon('map')}Etappe in Google Maps öffnen${mapsWaypoints.length ? ' (inkl. Sehenswürdigkeiten)' : ''}${icon('externalLink')}</a>
       <div class="day-sub">${title}</div>
       ${stayHtml}
       <div class="day-sub">Sehenswürdigkeiten auf dieser Etappe</div>
