@@ -378,11 +378,10 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
         <select id="ai-provider">
           <option value="openai">OpenAI (GPT)</option>
           <option value="gemini">Google Gemini</option>
-          <option value="anthropic">Anthropic (Claude)</option>
         </select>
       </div>
       <div class="field"><label>API-Key</label><input type="password" id="ai-apikey" placeholder="sk-… oder AIza…" autocomplete="off"></div>
-      <div class="field"><label>Modell (optional)</label><input type="text" id="ai-model" placeholder="z.B. gpt-4o-mini, gemini-2.0-flash oder claude-haiku-4-5"></div>
+      <div class="field"><label>Modell (optional)</label><input type="text" id="ai-model" placeholder="z.B. gpt-4o-mini oder gemini-2.0-flash"></div>
     </div>
 
     <div class="btn-bar">
@@ -1118,29 +1117,17 @@ function aiErrorMessage(providerLabel, status) {
 // oben gereicht wird – kostenlose Kontingente sind oft eng bemessen und ein
 // einzelner Ausreißer soll nicht gleich die ganze Etappe scheitern lassen.
 async function callAiProvider(settings, prompt) {
-  const provider = settings.provider === 'gemini' || settings.provider === 'anthropic' ? settings.provider : 'openai';
-  const providerLabel = provider === 'gemini' ? 'Gemini' : provider === 'anthropic' ? 'Claude' : 'OpenAI';
+  const isGemini = settings.provider === 'gemini';
+  const providerLabel = isGemini ? 'Gemini' : 'OpenAI';
   for (let attempt = 1; attempt <= 2; attempt++) {
     let res;
-    if (provider === 'gemini') {
+    if (isGemini) {
       const model = settings.model || 'gemini-2.0-flash';
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
       res = await fetchWithTimeout(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json' } })
-      }, 30000);
-    } else if (provider === 'anthropic') {
-      const model = settings.model || 'claude-haiku-4-5';
-      res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': settings.apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({ model, max_tokens: 1024, messages: [{ role: 'user', content: prompt }] })
       }, 30000);
     } else {
       const model = settings.model || 'gpt-4o-mini';
@@ -1152,13 +1139,9 @@ async function callAiProvider(settings, prompt) {
     }
     if (res.ok) {
       const data = await res.json();
-      if (provider === 'gemini') {
+      if (isGemini) {
         const cand = data.candidates && data.candidates[0];
         return cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
-      }
-      if (provider === 'anthropic') {
-        const block = data.content && data.content[0];
-        return block && block.text;
       }
       return data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
     }
