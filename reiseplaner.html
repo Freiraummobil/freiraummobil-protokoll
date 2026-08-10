@@ -437,6 +437,14 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
     <div class="card">
       <div class="card-title"><span class="ci" data-icon="landscape"></span>Deine Wunschliste</div>
+      <div class="field" id="bucketSortField" style="display:none">
+        <label>Sortierung</label>
+        <select id="bucket-sort" onchange="saveBucketSort(); renderBucketlist();">
+          <option value="added">Hinzufügereihenfolge</option>
+          <option value="az">Alphabetisch (A–Z)</option>
+          <option value="za">Alphabetisch (Z–A)</option>
+        </select>
+      </div>
       <div id="bucketList"></div>
     </div>
 
@@ -526,6 +534,7 @@ const PROFILE_KEY = 'fm_reiseplaner_profil_v1';
 const PREFS_KEY = 'fm_reiseplaner_praeferenzen_v1';
 const TRIP_KEY = 'fm_reiseplaner_letzte_reise_v1';
 const BUCKETLIST_KEY = 'fm_reiseplaner_wunschliste_v1';
+const BUCKET_SORT_KEY = 'fm_reiseplaner_wunschliste_sortierung_v1';
 const AI_KEY = 'fm_reiseplaner_ki_v1';
 
 const CHIP_GROUPS = {
@@ -677,12 +686,27 @@ let bucketlist = [];
 function saveBucketlist() {
   localStorage.setItem(BUCKETLIST_KEY, JSON.stringify(bucketlist));
 }
+function saveBucketSort() {
+  localStorage.setItem(BUCKET_SORT_KEY, v('bucket-sort') || 'added');
+}
 function loadBucketlist() {
   try {
     const raw = localStorage.getItem(BUCKETLIST_KEY);
     if (raw) bucketlist = JSON.parse(raw);
   } catch (e) { /* ignore corrupt storage */ }
+  setV('bucket-sort', localStorage.getItem(BUCKET_SORT_KEY) || 'added');
   renderBucketlist();
+}
+// Sortiert nur für die Anzeige – die zugrunde liegende Reihenfolge in
+// bucketlist (= Hinzufügereihenfolge) bleibt unverändert, da sie an keiner
+// Stelle sonst relevant ist (bucketItemsForSlice sortiert für die
+// Etappenplanung ohnehin eigenständig nach routeKm).
+function sortedBucketlist() {
+  const mode = v('bucket-sort') || 'added';
+  const list = bucketlist.slice();
+  if (mode === 'az') list.sort((a, b) => a.label.localeCompare(b.label, 'de'));
+  else if (mode === 'za') list.sort((a, b) => b.label.localeCompare(a.label, 'de'));
+  return list;
 }
 async function addBucketItem() {
   const query = v('bucket-query');
@@ -714,12 +738,14 @@ function removeBucketItem(id) {
 }
 function renderBucketlist() {
   const el = document.getElementById('bucketList');
+  const sortField = document.getElementById('bucketSortField');
   if (!el) return;
+  sortField.style.display = bucketlist.length > 1 ? '' : 'none';
   if (!bucketlist.length) {
     el.innerHTML = `<span class="text-muted">Noch keine Einträge – füge oben Orte oder Sehenswürdigkeiten hinzu, die auf jeden Fall in deine Reise eingebaut werden sollen.</span>`;
     return;
   }
-  el.innerHTML = bucketlist.map(b => `
+  el.innerHTML = sortedBucketlist().map(b => `
     <div class="spot-item">
       <strong>${icon('star')}${escapeHtml(b.label)}</strong>
       <span>${escapeHtml(shortName(b.displayName))}</span>
