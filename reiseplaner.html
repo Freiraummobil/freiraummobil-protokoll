@@ -339,7 +339,8 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
         <div class="field"><label>Höhe (m)</label><input type="number" step="0.01" id="fz-hoehe" placeholder="2.85"></div>
         <div class="field"><label>Breite (m)</label><input type="number" step="0.01" id="fz-breite" placeholder="2.03"></div>
       </div>
-      <div class="field"><label>Zul. Gesamtgewicht (kg)</label><input type="number" id="fz-gewicht" placeholder="3500"></div>
+      <div class="field"><label>Zul. Gesamtgewicht (kg)</label><input type="number" id="fz-gewicht" placeholder="3500" oninput="updateGewichtsklasse()"></div>
+      <div class="field-hint" id="fz-gewichtsklasse"></div>
       <div class="field-hint">Maße helfen dir, vorgeschlagene Stellplätze selbst auf Eignung zu prüfen (Höhenschranken, Wegbreite) – die App filtert Stellplätze noch nicht automatisch danach.</div>
     </div>
 
@@ -566,6 +567,23 @@ function setV(id, val) { const el = document.getElementById(id); if (el && val !
 // ── Fahrzeugprofil ──
 const PROFILE_FIELDS = ['fz-name','fz-typ','fz-laenge','fz-hoehe','fz-breite','fz-gewicht','fz-kraftstoff','fz-verbrauch','fz-frischwasser','fz-grauwasser'];
 
+// 3,5 t ist die rechtlich relevante Schwelle in Deutschland/EU (Führerschein-
+// klasse B endet hier, Lkw-spezifische Regeln wie Sonn-/Feiertagsfahrverbote
+// und Durchfahrtsbeschränkungen beginnen typischerweise ab dieser Grenze).
+// Wird bewusst aus dem ohnehin erfassten Gesamtgewicht abgeleitet statt als
+// eigenes Feld abgefragt, damit sich Gewicht und Klasse nie widersprechen.
+const HGV_WEIGHT_THRESHOLD_KG = 3500;
+function isHgvWeightClass() {
+  const kg = parseFloat(v('fz-gewicht'));
+  return !isNaN(kg) && kg > HGV_WEIGHT_THRESHOLD_KG;
+}
+function updateGewichtsklasse() {
+  const el = document.getElementById('fz-gewichtsklasse');
+  const kg = parseFloat(v('fz-gewicht'));
+  if (isNaN(kg) || !kg) { el.innerHTML = ''; return; }
+  el.innerHTML = `${icon('info', 'icon-hint')} ${isHgvWeightClass() ? 'Über 3,5 t – Lkw-Gewichtsklasse' : 'Bis 3,5 t – PKW-Gewichtsklasse'}`;
+}
+
 function saveProfile() {
   const obj = {};
   PROFILE_FIELDS.forEach(id => obj[id] = v(id));
@@ -581,11 +599,13 @@ function loadProfile() {
     PROFILE_FIELDS.forEach(id => setV(id, obj[id]));
     saveProfile();
   } catch (e) { /* ignore corrupt storage */ }
+  updateGewichtsklasse();
 }
 function resetProfile() {
   PROFILE_FIELDS.forEach(id => setV(id, ''));
   localStorage.removeItem(PROFILE_KEY);
   saveProfile();
+  updateGewichtsklasse();
   showToast('Fahrzeugdaten zurückgesetzt');
 }
 
