@@ -1131,6 +1131,109 @@ function campsiteAmenities(t) {
   return list;
 }
 
+// ── Parkmöglichkeiten für Sehenswürdigkeiten, geprüft gegen die Fahrzeugmaße ──
+// Wird NICHT automatisch für jede Sehenswürdigkeit mitgesucht (würde die
+// Etappenberechnung mit vielen zusätzlichen Overpass-Anfragen verlangsamen),
+// sondern erst bei Klick auf "Parkmöglichkeit suchen" nachgeladen – wie schon
+// bei den Wikipedia-Detailinfos.
+const PARKING_RADIUS_STEPS_KM = [1.5, 3, 6];
+
+// Ein Parkplatz gilt als geeignet, wenn KEINE seiner OSM-Maßangaben (falls
+// vorhanden) kleiner als die entsprechende Fahrzeugmaß-Angabe ist. Fehlt eine
+// Maßangabe (am Parkplatz ODER am Fahrzeug), wird sie nicht als Ausschluss
+// gewertet – OSM-Daten zu Höhen-/Breiten-/Längenbeschränkungen sind oft
+// lückenhaft, ein fehlender Tag heißt nicht "keine Einschränkung".
+function parkingSuitableForVehicle(tags, dims) {
+  if (tags.access && ['private', 'no', 'customers'].includes(tags.access)) return false;
+  const fits = (limitStr, vehicleVal) => {
+    if (!limitStr || vehicleVal == null) return true;
+    const limit = parseFloat(limitStr);
+    return isNaN(limit) || limit > vehicleVal;
+  };
+  return fits(tags.maxheight, dims.hoehe) && fits(tags.maxwidth, dims.breite) && fits(tags.maxlength, dims.laenge);
+}
+
+function parkingLimitsText(t) {
+  const parts = [];
+  if (t.maxheight) parts.push('Max. Höhe ' + t.maxheight + ' m');
+  if (t.maxwidth) parts.push('Max. Breite ' + t.maxwidth + ' m');
+  if (t.maxlength) parts.push('Max. Länge ' + t.maxlength + ' m');
+  if (t.motorhome === 'yes' || t.caravan === 'yes') parts.push('Für Wohnmobile ausgewiesen');
+  return parts.join(' · ');
+}
+
+async function findParkingNearSight(coord, dims) {
+  let lastError = null;
+  for (let i = 0; i < PARKING_RADIUS_STEPS_KM.length; i++) {
+    const radiusKm = PARKING_RADIUS_STEPS_KM[i];
+    const radiusM = Math.round(radiusKm * 1000);
+    const q = `[out:json][timeout:20];(node["amenity"="parking"](around:${radiusM},${coord[0]},${coord[1]});way["amenity"="parking"](around:${radiusM},${coord[0]},${coord[1]}););out center tags 30;`;
+    try {
+      const data = await overpassFetch(q);
+      const all = data.elements.map(el => {
+        const lat = el.lat != null ? el.lat : (el.center && el.center.lat);
+        const lon = el.lon != null ? el.lon : (el.center && el.center.lon);
+        if (lat == null || lon == null) return null;
+        return { lat, lon, tags: el.tags || {}, distKm: haversineKm(coord, [lat, lon]) };
+      }).filter(Boolean);
+      const suitable = all.filter(p => parkingSuitableForVehicle(p.tags, dims));
+      if (suitable.length) {
+        suitable.sort((a, b) => a.distKm - b.distKm);
+        return { list: suitable.slice(0, 3), radiusKm, expanded: i > 0, noneSuitable: false };
+      }
+      if (i === PARKING_RADIUS_STEPS_KM.length - 1) {
+        return { list: [], radiusKm, expanded: true, noneSuitable: all.length > 0 };
+      }
+    } catch (e) { lastError = e; }
+    if (i < PARKING_RADIUS_STEPS_KM.length - 1) await sleep(300);
+  }
+  if (lastError) throw lastError;
+  return { list: [], radiusKm: PARKING_RADIUS_STEPS_KM[PARKING_RADIUS_STEPS_KM.length - 1], expanded: true, noneSuitable: false };
+}
+
+function renderParkingResult(result, hasDims) {
+  const dimsHint = hasDims ? '' : `<div class="field-hint">${icon('info', 'icon-hint')} Fahrzeugmaße (Höhe/Breite/Länge) sind nicht vollständig hinterlegt – Ergebnisse sind ungeprüft, bitte Maße vor Ort selbst kontrollieren.</div>`;
+  if (!result.list.length) {
+    const msg = result.noneSuitable
+      ? 'Parkplätze in der Nähe gefunden, aber laut OSM-Daten passt keiner zu den hinterlegten Fahrzeugmaßen. Bitte vor Ort prüfen oder einen größeren Parkplatz manuell suchen.'
+      : `Im Umkreis von ${result.radiusKm} km wurde kein Parkplatz gefunden (OpenStreetMap hat hier offenbar keine Daten).`;
+    return dimsHint + `<div class="field-hint">${icon('warning', 'icon-hint')} ${escapeHtml(msg)}</div>`;
+  }
+  const expandedHint = result.expanded
+    ? `<div class="field-hint">${icon('info', 'icon-hint')} Kein passender Parkplatz in unmittelbarer Nähe – Suche auf ${result.radiusKm} km erweitert.</div>`
+    : '';
+  return dimsHint + expandedHint + result.list.map(p => `
+    <div class="spot-item">
+      <strong>${icon('parking')}${escapeHtml(p.tags.name || 'Parkplatz')}</strong>
+      <span>${p.distKm.toFixed(1)} km von der Sehenswürdigkeit${p.tags.fee === 'no' ? ' · kostenlos' : ''}</span>
+      ${parkingLimitsText(p.tags) ? `<div class="sight-desc">${escapeHtml(parkingLimitsText(p.tags))}</div>` : ''}
+      <div class="spot-actions">
+        <a class="spot-link" href="https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lon}#map=17/${p.lat}/${p.lon}" target="_blank" rel="noopener">Auf Karte anzeigen ${icon('externalLink', 'icon-sm')}</a>
+        <button type="button" class="spot-link" onclick="copyCoords(${p.lat}, ${p.lon})">${icon('copy', 'icon-sm')} Koordinaten kopieren</button>
+      </div>
+    </div>`).join('');
+}
+
+async function showParkingForSight(dayIndex, sightIdx) {
+  const day = currentPlan && currentPlan.days.find(d => d.index === dayIndex);
+  const s = day && day.sights && day.sights[sightIdx];
+  const targetEl = document.getElementById(`parking-${dayIndex}-${sightIdx}`);
+  if (!s || !targetEl) return;
+  const dims = {
+    hoehe: parseFloat(v('fz-hoehe')) || null,
+    breite: parseFloat(v('fz-breite')) || null,
+    laenge: parseFloat(v('fz-laenge')) || null
+  };
+  const hasDims = dims.hoehe != null || dims.breite != null || dims.laenge != null;
+  targetEl.innerHTML = `<div class="field-hint">${icon('info', 'icon-hint')} Parkmöglichkeit wird gesucht …</div>`;
+  try {
+    const result = await findParkingNearSight([s.lat, s.lon], dims);
+    targetEl.innerHTML = renderParkingResult(result, hasDims);
+  } catch (e) {
+    targetEl.innerHTML = `<div class="field-hint">${icon('warning', 'icon-hint')} Parkplatzsuche fehlgeschlagen: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
 // ── Sehenswürdigkeiten: Wunschliste (siehe unten) + KI-Vorschläge sind die
 // einzigen beiden Quellen (OSM/Wikipedia/Wikivoyage wurden bewusst entfernt,
 // siehe Historie) – cumulativeKm/projectOntoRoute werden von beiden genutzt,
@@ -1653,7 +1756,9 @@ function dayCardHtml(day, zielPoint) {
           <a class="spot-link" href="https://www.google.com/search?q=${encodeURIComponent(s.name)}" target="_blank" rel="noopener">Webseite ${icon('externalLink', 'icon-sm')}</a>
           <button type="button" class="spot-link sight-detail-btn" onclick="showSightDetail(${day.index}, ${i})">${icon('info', 'icon-sm')} Mehr Infos</button>
           <button type="button" class="spot-link" onclick="copyCoords(${s.lat}, ${s.lon})">${icon('copy', 'icon-sm')} Koordinaten kopieren</button>
+          <button type="button" class="spot-link" onclick="showParkingForSight(${day.index}, ${i})">${icon('parking', 'icon-sm')} Parkmöglichkeit suchen</button>
         </div>
+        <div id="parking-${day.index}-${i}"></div>
       </div>`).join('');
   }
 
