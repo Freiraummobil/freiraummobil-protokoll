@@ -879,11 +879,20 @@ async function fetchRoute(a, b) {
 }
 
 async function fetchRouteOnce(a, b) {
-  const url = `https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=full&geometries=geojson`;
+  return fetchRouteViaPoints([[a.lat, a.lon], [b.lat, b.lon]], 'Keine Route zwischen Start und Ziel gefunden');
+}
+
+// Verallgemeinerte Variante von fetchRouteOnce: routet der Reihe nach durch
+// beliebig viele [lat, lon]-Wegpunkte statt nur Start->Ziel – damit lässt
+// sich z.B. eine Etappe explizit über ihre Sehenswürdigkeiten führen statt
+// nur die direkte Strecke zu berechnen und Treffer daneben anzuzeigen.
+async function fetchRouteViaPoints(points, notFoundMsg) {
+  const coordStr = points.map(p => `${p[1]},${p[0]}`).join(';');
+  const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`;
   const res = await fetchWithTimeout(url, undefined, 20000);
   if (!res.ok) throw new Error('Routenberechnung fehlgeschlagen (HTTP ' + res.status + ')');
   const data = await res.json();
-  if (data.code !== 'Ok' || !data.routes || !data.routes.length) throw new Error('Keine Route zwischen Start und Ziel gefunden');
+  if (data.code !== 'Ok' || !data.routes || !data.routes.length) throw new Error(notFoundMsg || 'Keine Route gefunden');
   const r = data.routes[0];
   const coords = r.geometry.coordinates.map(c => [c[1], c[0]]);
   const cumKm = [0];
@@ -1416,6 +1425,39 @@ async function computeTrip() {
     }
 
     dedupeSightsAcrossDays(plan.days);
+
+    // Die Etappen-Linie führt jetzt tatsächlich über die (nach Dedupe)
+    // verbliebenen Sehenswürdigkeiten der jeweiligen Etappe, statt sie nur
+    // in ihrer Nähe anzuzeigen – Reihenfolge entspricht bereits der
+    // Fahrtrichtung (routeKm-sortiert), daher keine weitere Optimierung
+    // nötig. Läuft erst NACH dem Dedupe, damit keine Etappe über eine
+    // Sehenswürdigkeit fährt, die ihr am Ende gar nicht mehr zugeordnet ist.
+    const origTotalKm = route.distanceKm;
+    for (const day of plan.days) {
+      if (!day.sights || !day.sights.length) continue;
+      setPlanLoadingText(`Etappe ${day.index} von ${totalLegs}: Route über Sehenswürdigkeiten wird berechnet …`);
+      const viaPoints = day.sights.slice(0, 8).map(s => [s.lat, s.lon]);
+      try {
+        const viaRoute = await withRetry(
+          () => fetchRouteViaPoints([day.from, ...viaPoints, day.to], 'Keine Route über die Sehenswürdigkeiten dieser Etappe gefunden'),
+          2, 1200
+        );
+        day.slice = viaRoute.coords;
+        day.distanceKm = viaRoute.distanceKm;
+        day.routedViaSights = true;
+      } catch (e) {
+        day.sightsRouteNote = 'Route konnte nicht über die Sehenswürdigkeiten geführt werden (' + e.message + ') – Vorschläge bleiben gültig, die Karte zeigt aber die direkte Strecke.';
+      }
+      await sleep(300);
+    }
+    // Gesamtstrecke an die (durch Umwege ggf. längeren) Etappen anpassen;
+    // die Fahrzeit wird proportional mitskaliert, da OSRM sie nur für die
+    // Gesamtroute, nicht pro Etappenpunkt liefert.
+    const newTotalKm = plan.days.reduce((sum, day) => sum + day.distanceKm, 0);
+    route.coords = plan.days.flatMap((day, i) => i === 0 ? day.slice : day.slice.slice(1));
+    route.durationH = origTotalKm > 0 ? route.durationH * (newTotalKm / origTotalKm) : route.durationH;
+    route.distanceKm = newTotalKm;
+
     renderResult(startPoint, zielPoint, route, plan);
   } catch (err) {
     console.error(err);
@@ -1559,6 +1601,10 @@ function dayCardHtml(day, zielPoint) {
   if ((day.sights || []).length) mapsLinkExtras.push('Sehenswürdigkeiten');
   if (selectedCampsite) mapsLinkExtras.push('gewählten Stellplatz');
 
+  const routeHint = day.sightsRouteNote
+    ? `<div class="field-hint">${icon('warning', 'icon-hint')} ${escapeHtml(day.sightsRouteNote)}</div>`
+    : (day.routedViaSights ? `<div class="field-hint">${icon('info', 'icon-hint')} Die Fahrstrecke führt bereits über die unten gelisteten Sehenswürdigkeiten.</div>` : '');
+
   return `
     <div class="day-card" id="day-card-${day.index}">
       <div class="day-head">
@@ -1566,6 +1612,7 @@ function dayCardHtml(day, zielPoint) {
         <div><strong>Tag ${day.index}</strong><span class="day-km">${Math.round(day.distanceKm)} km Fahrstrecke</span></div>
       </div>
       <a class="day-maps-link" href="${escapeHtml(mapsLink)}" target="_blank" rel="noopener">${icon('map')}Etappe in Google Maps öffnen${mapsLinkExtras.length ? ` (inkl. ${mapsLinkExtras.join(' & ')})` : ''}${icon('externalLink')}</a>
+      ${routeHint}
       <div class="day-sub">${title}</div>
       ${stayHtml}
       <div class="day-sub">Sehenswürdigkeiten auf dieser Etappe</div>
