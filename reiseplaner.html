@@ -325,14 +325,24 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
     <div class="card">
       <div class="card-title"><span class="ci" data-icon="van"></span>Fahrzeug</div>
       <div class="field"><label>Name / Kennzeichen</label><input type="text" id="fz-name" placeholder="z.B. Freiraummobil BO FR 1000"></div>
-      <div class="field"><label>Fahrzeugtyp</label>
-        <select id="fz-typ">
-          <option value="">wählen…</option>
-          <option>Kastenwagen</option>
-          <option>Teilintegriert</option>
-          <option>Integriert (Alkoven)</option>
-          <option>Wohnwagen mit Zugfahrzeug</option>
-        </select>
+      <div class="grid2">
+        <div class="field"><label>Fahrzeugtyp</label>
+          <select id="fz-typ">
+            <option value="">wählen…</option>
+            <option>Kastenwagen</option>
+            <option>Teilintegriert</option>
+            <option>Integriert (Alkoven)</option>
+            <option>Wohnwagen mit Zugfahrzeug</option>
+          </select>
+        </div>
+        <div class="field"><label>Antriebsart</label>
+          <select id="fz-antrieb">
+            <option value="">wählen…</option>
+            <option>Vorderradantrieb</option>
+            <option>Hinterradantrieb</option>
+            <option>Allradantrieb (4x4)</option>
+          </select>
+        </div>
       </div>
       <div class="grid3">
         <div class="field"><label>Länge (m)</label><input type="number" step="0.01" id="fz-laenge" placeholder="5.99"></div>
@@ -342,26 +352,6 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
       <div class="field"><label>Zul. Gesamtgewicht (kg)</label><input type="number" id="fz-gewicht" placeholder="3500" oninput="updateGewichtsklasse()"></div>
       <div class="field-hint" id="fz-gewichtsklasse"></div>
       <div class="field-hint">Maße helfen dir, vorgeschlagene Stellplätze selbst auf Eignung zu prüfen (Höhenschranken, Wegbreite) – die App filtert Stellplätze noch nicht automatisch danach.</div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span class="ci" data-icon="fuel"></span>Antrieb &amp; Tanks</div>
-      <div class="grid2">
-        <div class="field"><label>Kraftstoff</label>
-          <select id="fz-kraftstoff">
-            <option value="">wählen…</option>
-            <option>Diesel</option>
-            <option>Benzin</option>
-            <option>Autogas (LPG)</option>
-            <option>Elektro</option>
-          </select>
-        </div>
-        <div class="field"><label>Ø Verbrauch (l bzw. kWh /100km)</label><input type="number" step="0.1" id="fz-verbrauch" placeholder="9.5"></div>
-      </div>
-      <div class="grid2">
-        <div class="field"><label>Frischwassertank (Liter)</label><input type="number" id="fz-frischwasser" placeholder="100"></div>
-        <div class="field"><label>Abwassertank (Liter)</label><input type="number" id="fz-grauwasser" placeholder="100"></div>
-      </div>
     </div>
 
     <button class="btn-full btn-secondary" onclick="resetProfile()"><span class="icon" data-icon="refresh"></span>Fahrzeugdaten zurücksetzen</button>
@@ -394,11 +384,11 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
       <div class="card-title"><span class="ci" data-icon="road"></span>Fahrverhalten</div>
       <div class="grid2">
         <div class="field"><label>Max. km pro Tag</label><input type="number" id="pref-km" placeholder="250"></div>
-        <div class="field"><label>Max. Fahrzeit pro Tag (Std.)</label><input type="number" step="0.5" id="pref-stunden" placeholder="4"></div>
+        <div class="field"><label>Spots pro Tag (max.)</label><input type="number" id="pref-spots" placeholder="3"></div>
       </div>
       <div class="grid2">
         <div class="field"><label>Akzeptierter Umweg für Spots (km)</label><input type="number" id="pref-umweg" placeholder="15"></div>
-        <div class="field"><label>Spots pro Tag (max.)</label><input type="number" id="pref-spots" placeholder="3"></div>
+        <div class="field"><label>Max. Fahrzeit pro Tag (Std.)</label><input type="number" step="0.5" id="pref-stunden" placeholder="4"></div>
       </div>
     </div>
 
@@ -574,7 +564,7 @@ function v(id) { const el = document.getElementById(id); return el ? el.value.tr
 function setV(id, val) { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; }
 
 // ── Fahrzeugprofil ──
-const PROFILE_FIELDS = ['fz-name','fz-typ','fz-laenge','fz-hoehe','fz-breite','fz-gewicht','fz-kraftstoff','fz-verbrauch','fz-frischwasser','fz-grauwasser'];
+const PROFILE_FIELDS = ['fz-name','fz-typ','fz-antrieb','fz-laenge','fz-hoehe','fz-breite','fz-gewicht'];
 
 // 3,5 t ist die rechtlich relevante Schwelle in Deutschland/EU (Führerschein-
 // klasse B endet hier, Lkw-spezifische Regeln wie Sonn-/Feiertagsfahrverbote
