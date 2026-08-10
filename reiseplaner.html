@@ -541,7 +541,8 @@ const CHIP_GROUPS = {
     { v: 'dusche', l: 'Dusche / Sanitär' },
     { v: 'wlan', l: 'WLAN' },
     { v: 'hunde', l: 'Hundefreundlich' },
-    { v: 'guenstig', l: 'Kostenlos / günstig' }
+    { v: 'guenstig', l: 'Kostenlos / günstig' },
+    { v: 'wanderwege', l: 'Wanderwege in der Nähe' }
   ]},
   sights: { containerId: 'chips-sights', options: [
     { v: 'natur', l: 'Natur & Landschaft' },
@@ -1050,6 +1051,7 @@ function scoreCampsite(site, p) {
   if (p.ausstattung.includes('wlan') && t.internet_access && t.internet_access !== 'no') score += 1;
   if (p.ausstattung.includes('hunde') && t.dog && t.dog !== 'no') score += 0.5;
   if (p.ausstattung.includes('guenstig') && t.fee === 'no') score += 1;
+  if (p.ausstattung.includes('wanderwege') && t.hiking === 'yes') score += 1;
   score -= site.distKm * 0.08;
   return score;
 }
@@ -1118,6 +1120,7 @@ function campsiteAmenities(t) {
   if (t.internet_access && t.internet_access !== 'no') list.push({ icon: 'wifi', label: 'WLAN' });
   if (t.dog && t.dog !== 'no') list.push({ icon: 'paw', label: 'Hunde ok' });
   if (t.fee === 'no') list.push({ icon: 'tag', label: 'Kostenlos' });
+  if (t.hiking === 'yes') list.push({ icon: 'landscape', label: 'Wanderwege in der Nähe' });
   return list;
 }
 
