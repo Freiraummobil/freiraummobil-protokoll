@@ -741,6 +741,14 @@ function renderBucketlist() {
       <strong>${icon('star')}${escapeHtml(b.label)}</strong>
       <span>${escapeHtml(shortName(b.displayName))}</span>
       ${b.note ? `<div class="sight-desc">${escapeHtml(b.note)}</div>` : ''}
+      <div class="sight-actions">
+        <a class="spot-link" href="https://www.openstreetmap.org/?mlat=${b.lat}&mlon=${b.lon}#map=17/${b.lat}/${b.lon}" target="_blank" rel="noopener">Auf Karte anzeigen ${icon('externalLink', 'icon-sm')}</a>
+        <a class="spot-link" href="https://www.google.com/search?q=${encodeURIComponent(b.label)}" target="_blank" rel="noopener">Webseite ${icon('externalLink', 'icon-sm')}</a>
+        <button type="button" class="spot-link sight-detail-btn" onclick="showSightDetail('bucket', '${b.id}')">${icon('info', 'icon-sm')} Mehr Infos</button>
+        <button type="button" class="spot-link" onclick="copyCoords(${b.lat}, ${b.lon})">${icon('copy', 'icon-sm')} Koordinaten kopieren</button>
+        <button type="button" class="spot-link" onclick="showParkingForSight('bucket', '${b.id}')">${icon('parking', 'icon-sm')} Parkmöglichkeit suchen</button>
+      </div>
+      <div id="parking-bucket-${b.id}"></div>
       <button type="button" class="bucket-remove" onclick="removeBucketItem('${b.id}')">${icon('trash', 'icon-sm')}Entfernen</button>
     </div>`).join('');
 }
@@ -1207,11 +1215,32 @@ function renderParkingResult(result, hasDims) {
     </div>`).join('');
 }
 
-async function showParkingForSight(dayIndex, sightIdx) {
-  const day = currentPlan && currentPlan.days.find(d => d.index === dayIndex);
-  const s = day && day.sights && day.sights[sightIdx];
-  const targetEl = document.getElementById(`parking-${dayIndex}-${sightIdx}`);
-  if (!s || !targetEl) return;
+// Löst eine Orts-Referenz auf {name, lat, lon} auf – entweder eine
+// Sehenswürdigkeit im aktuellen Reiseplan (kind 'sight', a=Etappenindex,
+// b=Index in day.sights) oder ein Wunschliste-Eintrag (kind 'bucket',
+// a=Eintrags-ID). Damit nutzen Detail-Infos, Parkplatzsuche und
+// Koordinaten-Kopieren auf beiden Seiten dieselbe Logik statt sie zu
+// duplizieren.
+function resolvePlaceRef(kind, a, b) {
+  if (kind === 'sight') {
+    const day = currentPlan && currentPlan.days.find(d => d.index === a);
+    const s = day && day.sights && day.sights[b];
+    return s ? { name: s.name, lat: s.lat, lon: s.lon } : null;
+  }
+  if (kind === 'bucket') {
+    const item = bucketlist.find(x => x.id === a);
+    return item ? { name: item.label, lat: item.lat, lon: item.lon } : null;
+  }
+  return null;
+}
+function parkingContainerId(kind, a, b) {
+  return kind === 'bucket' ? `parking-bucket-${a}` : `parking-${a}-${b}`;
+}
+
+async function showParkingForSight(kind, a, b) {
+  const place = resolvePlaceRef(kind, a, b);
+  const targetEl = document.getElementById(parkingContainerId(kind, a, b));
+  if (!place || !targetEl) return;
   const dims = {
     hoehe: parseFloat(v('fz-hoehe')) || null,
     breite: parseFloat(v('fz-breite')) || null,
@@ -1220,7 +1249,7 @@ async function showParkingForSight(dayIndex, sightIdx) {
   const hasDims = dims.hoehe != null || dims.breite != null || dims.laenge != null;
   targetEl.innerHTML = `<div class="field-hint">${icon('info', 'icon-hint')} Parkmöglichkeit wird gesucht …</div>`;
   try {
-    const result = await findParkingNearSight([s.lat, s.lon], dims);
+    const result = await findParkingNearSight([place.lat, place.lon], dims);
     targetEl.innerHTML = renderParkingResult(result, hasDims);
   } catch (e) {
     targetEl.innerHTML = `<div class="field-hint">${icon('warning', 'icon-hint')} Parkplatzsuche fehlgeschlagen: ${escapeHtml(e.message)}</div>`;
@@ -1747,9 +1776,9 @@ function dayCardHtml(day, zielPoint) {
         <div class="sight-actions">
           <a class="spot-link" href="${escapeHtml(s.link || ('https://www.openstreetmap.org/?mlat=' + s.lat + '&mlon=' + s.lon + '#map=17/' + s.lat + '/' + s.lon))}" target="_blank" rel="noopener">Auf Karte anzeigen ${icon('externalLink', 'icon-sm')}</a>
           <a class="spot-link" href="https://www.google.com/search?q=${encodeURIComponent(s.name)}" target="_blank" rel="noopener">Webseite ${icon('externalLink', 'icon-sm')}</a>
-          <button type="button" class="spot-link sight-detail-btn" onclick="showSightDetail(${day.index}, ${i})">${icon('info', 'icon-sm')} Mehr Infos</button>
+          <button type="button" class="spot-link sight-detail-btn" onclick="showSightDetail('sight', ${day.index}, ${i})">${icon('info', 'icon-sm')} Mehr Infos</button>
           <button type="button" class="spot-link" onclick="copyCoords(${s.lat}, ${s.lon})">${icon('copy', 'icon-sm')} Koordinaten kopieren</button>
-          <button type="button" class="spot-link" onclick="showParkingForSight(${day.index}, ${i})">${icon('parking', 'icon-sm')} Parkmöglichkeit suchen</button>
+          <button type="button" class="spot-link" onclick="showParkingForSight('sight', ${day.index}, ${i})">${icon('parking', 'icon-sm')} Parkmöglichkeit suchen</button>
         </div>
         <div id="parking-${day.index}-${i}"></div>
       </div>`).join('');
@@ -1798,18 +1827,17 @@ function closeSightDetail() {
   document.getElementById('detailOverlay').classList.remove('show');
 }
 
-async function showSightDetail(dayIndex, sightIdx) {
-  const day = currentPlan && currentPlan.days.find(d => d.index === dayIndex);
-  const s = day && day.sights && day.sights[sightIdx];
-  if (!s) return;
-  const webLink = 'https://www.google.com/search?q=' + encodeURIComponent(s.name);
+async function showSightDetail(kind, a, b) {
+  const place = resolvePlaceRef(kind, a, b);
+  if (!place) return;
+  const webLink = 'https://www.google.com/search?q=' + encodeURIComponent(place.name);
   document.getElementById('detailBody').innerHTML = `
-    <div class="detail-title">${escapeHtml(s.name)}</div>
+    <div class="detail-title">${escapeHtml(place.name)}</div>
     <div class="detail-status">Informationen werden geladen …</div>`;
   document.getElementById('detailOverlay').classList.add('show');
 
   let summary = null;
-  try { summary = await fetchWikipediaSummary(s.name); } catch (e) { summary = null; }
+  try { summary = await fetchWikipediaSummary(place.name); } catch (e) { summary = null; }
 
   // Modal könnte zwischenzeitlich geschlossen worden sein – dann nicht mehr überschreiben.
   if (!document.getElementById('detailOverlay').classList.contains('show')) return;
@@ -1822,7 +1850,7 @@ async function showSightDetail(dayIndex, sightIdx) {
   const sourceLabel = (summary && summary.pageUrl) ? 'Wikipedia-Artikel öffnen' : 'Im Web suchen';
   document.getElementById('detailBody').innerHTML = `
     ${img}
-    <div class="detail-title">${escapeHtml(s.name)}</div>
+    <div class="detail-title">${escapeHtml(place.name)}</div>
     ${text}
     <a class="detail-source" href="${escapeHtml(sourceHref)}" target="_blank" rel="noopener">${sourceLabel} ${icon('externalLink', 'icon-sm')}</a>`;
 }
