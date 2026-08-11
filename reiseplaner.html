@@ -361,6 +361,16 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
       <div class="field-hint">Maße helfen dir, vorgeschlagene Stellplätze selbst auf Eignung zu prüfen (Höhenschranken, Wegbreite) – die App filtert Stellplätze noch nicht automatisch danach.</div>
     </div>
 
+    <div class="card">
+      <div class="card-title"><span class="ci" data-icon="share"></span>Daten teilen</div>
+      <div class="field-hint">Überträgt Fahrzeugdaten und Wunschliste auf ein anderes Gerät (z.B. Handy ↔ Tablet) oder gibt sie an eine andere Person weiter – als Datei zum Teilen oder Herunterladen. Alles läuft nur zwischen den Geräten, nichts wird an uns übertragen.</div>
+      <div class="field checkbox-field"><label><input type="checkbox" id="export-include-key"> KI-API-Key mit einschließen</label></div>
+      <div class="field-hint">Nur aktivieren, wenn das Zielgerät demselben Google-Konto gehört bzw. du den Key bewusst weitergeben willst – sonst landet er bei einer fremden Person.</div>
+      <button class="btn-full btn-secondary" onclick="exportAppData()"><span class="icon" data-icon="share"></span>Daten teilen / exportieren</button>
+      <button class="btn-full btn-secondary" onclick="document.getElementById('importFileInput').click()"><span class="icon" data-icon="upload"></span>Daten importieren</button>
+      <input type="file" id="importFileInput" accept="application/json,.json" style="display:none" onchange="importAppData(event)">
+    </div>
+
     <button class="btn-full btn-secondary" onclick="resetProfile()"><span class="icon" data-icon="refresh"></span>Fahrzeugdaten zurücksetzen</button>
     <div class="btn-bar"><button class="btn-next btn-full" onclick="goTo(1)">Weiter: Präferenzen →</button></div>
   </div>
@@ -785,6 +795,82 @@ function loadAiSettings() {
   setV('ai-model', aiSettings.model);
 }
 
+// ── Daten teilen (Fahrzeugdaten + Wunschliste, optional KI-API-Key) ──
+// Es gibt kein Konto/Backend – die Übertragung auf ein anderes Gerät läuft
+// rein clientseitig über eine JSON-Datei, die sich per Web-Share-API direkt
+// "teilen" lässt (Mail, Messenger, AirDrop, …) oder sonst heruntergeladen
+// wird. Der API-Key ist bewusst NICHT standardmäßig enthalten, da er an ein
+// bestimmtes Google-Konto/-Kontingent gebunden ist und beim Teilen mit einer
+// fremden Person deren Nutzung auf das eigene Konto abrechnen würde.
+const EXPORT_VERSION = 1;
+
+function buildExportData() {
+  const data = {
+    version: EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    profile: JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null'),
+    bucketlist: JSON.parse(localStorage.getItem(BUCKETLIST_KEY) || '[]')
+  };
+  if (document.getElementById('export-include-key').checked) {
+    const ai = JSON.parse(localStorage.getItem(AI_KEY) || 'null');
+    if (ai) data.aiSettings = ai;
+  }
+  return data;
+}
+
+async function exportAppData() {
+  const json = JSON.stringify(buildExportData(), null, 2);
+  const filename = 'reiseplaner-daten.json';
+  const file = new File([json], filename, { type: 'application/json' });
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'Reiseplaner-Daten' });
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return; // Nutzer hat den Teilen-Dialog abgebrochen
+      // sonst: unten auf normalen Download zurückfallen
+    }
+  }
+  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  showToast('Datei heruntergeladen: ' + filename);
+}
+
+async function importAppData(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = ''; // erlaubt erneutes Auswählen derselben Datei
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data || typeof data !== 'object') throw new Error('Ungültiges Dateiformat');
+    const imported = [];
+    if (data.profile) {
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(data.profile));
+      loadProfile();
+      imported.push('Fahrzeugdaten');
+    }
+    if (Array.isArray(data.bucketlist)) {
+      localStorage.setItem(BUCKETLIST_KEY, JSON.stringify(data.bucketlist));
+      loadBucketlist();
+      imported.push('Wunschliste');
+    }
+    if (data.aiSettings) {
+      localStorage.setItem(AI_KEY, JSON.stringify(data.aiSettings));
+      loadAiSettings();
+      imported.push('KI-API-Key');
+    }
+    if (!imported.length) { showToast('Keine bekannten Daten in der Datei gefunden'); return; }
+    showToast('Importiert: ' + imported.join(', '));
+  } catch (e) {
+    showToast('Import fehlgeschlagen: ' + e.message);
+  }
+}
+
 // ══════════════════════════════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════════════════════════════
@@ -878,7 +964,9 @@ const ICON_PATHS = {
   trash: '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/><path d="M10 11v6M14 11v6"/>',
   check: '<path d="M4 12l5 5L20 6"/>',
   close: '<path d="M6 6l12 12M18 6 6 18"/>',
-  copy: '<rect x="9" y="9" width="12" height="12" rx="1.5"/><path d="M6 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V6"/>'
+  copy: '<rect x="9" y="9" width="12" height="12" rx="1.5"/><path d="M6 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V6"/>',
+  share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.7l7.6-4.4M8.2 13.3l7.6 4.4"/>',
+  upload: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>'
 };
 function icon(name, cls) {
   const inner = ICON_PATHS[name] || '';
