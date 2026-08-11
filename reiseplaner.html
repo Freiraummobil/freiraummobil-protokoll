@@ -363,7 +363,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
     <div class="card">
       <div class="card-title"><span class="ci" data-icon="share"></span>Daten teilen</div>
-      <div class="field-hint">Überträgt Fahrzeugdaten und Wunschliste auf ein anderes Gerät (z.B. Handy ↔ Tablet) oder gibt sie an eine andere Person weiter – als Datei zum Teilen oder Herunterladen. Alles läuft nur zwischen den Geräten, nichts wird an uns übertragen.</div>
+      <div class="field-hint">Überträgt Fahrzeugdaten, Wunschliste und Präferenzen auf ein anderes Gerät (z.B. Handy ↔ Tablet) oder gibt sie an eine andere Person weiter – als Datei zum Teilen oder Herunterladen. Alles läuft nur zwischen den Geräten, nichts wird an uns übertragen.</div>
       <div class="field checkbox-field"><label><input type="checkbox" id="export-include-key"> KI-API-Key mit einschließen</label></div>
       <div class="field-hint">Nur aktivieren, wenn das Zielgerät demselben Google-Konto gehört bzw. du den Key bewusst weitergeben willst – sonst landet er bei einer fremden Person.</div>
       <button class="btn-full btn-secondary" onclick="exportAppData()"><span class="icon" data-icon="share"></span>Daten teilen / exportieren</button>
@@ -809,7 +809,8 @@ function buildExportData() {
     version: EXPORT_VERSION,
     exportedAt: new Date().toISOString(),
     profile: JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null'),
-    bucketlist: JSON.parse(localStorage.getItem(BUCKETLIST_KEY) || '[]')
+    bucketlist: JSON.parse(localStorage.getItem(BUCKETLIST_KEY) || '[]'),
+    prefs: JSON.parse(localStorage.getItem(PREFS_KEY) || 'null')
   };
   if (document.getElementById('export-include-key').checked) {
     const ai = JSON.parse(localStorage.getItem(AI_KEY) || 'null');
@@ -858,6 +859,11 @@ async function importAppData(event) {
       localStorage.setItem(BUCKETLIST_KEY, JSON.stringify(data.bucketlist));
       loadBucketlist();
       imported.push('Wunschliste');
+    }
+    if (data.prefs) {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(data.prefs));
+      loadPrefs();
+      imported.push('Präferenzen');
     }
     if (data.aiSettings) {
       localStorage.setItem(AI_KEY, JSON.stringify(data.aiSettings));
