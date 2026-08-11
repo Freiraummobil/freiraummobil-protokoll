@@ -243,6 +243,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .sight-item .sight-desc { font-size: 12px; color: var(--ink); opacity: 0.8; line-height: 1.4; margin-top: 6px; }
 .sight-item .spot-link { color: var(--accent-dark); }
 .sight-item-bucket { border: 2px solid var(--accent); }
+.sight-item.sight-item-selected { border: 2px solid var(--accent); }
 .sight-detail-btn { border: none; background: none; padding: 0; cursor: pointer; font-family: inherit; }
 
 .detail-overlay {
@@ -988,12 +989,19 @@ function buildDayPlan(route, totalDays, tagesKmMax) {
     const targetKm = i === legs ? totalKm : i * kmPerLeg;
     const toIdx = i === legs ? route.coords.length - 1 : Math.max(indexAtDistance(route.cumKm, targetKm), prevIdx + 1);
     const slice = route.coords.slice(prevIdx, toIdx + 1);
+    const distanceKm = route.cumKm[toIdx] - route.cumKm[prevIdx];
     days.push({
       index: i,
       from: route.coords[prevIdx],
       to: route.coords[toIdx],
-      distanceKm: route.cumKm[toIdx] - route.cumKm[prevIdx],
+      distanceKm,
       slice,
+      // Unveränderte Basisroute (direkte Strecke) – wird beim Ab-/Auswählen
+      // von Sehenswürdigkeiten für die Navigation als Rückfallpunkt
+      // gebraucht, siehe toggleSightSelection.
+      baseSlice: slice,
+      baseDistanceKm: distanceKm,
+      selectedSightIdxs: [],
       isLast: i === legs
     });
     prevIdx = toIdx;
@@ -1534,7 +1542,7 @@ async function findBestSights(slice, p) {
 // ══════════════════════════════════════════════════════════════
 // TRIP COMPUTATION
 // ══════════════════════════════════════════════════════════════
-let map = null, mapLayer = null;
+let map = null, mapLayer = null, routeLine = null;
 let currentPlan = null, currentZielPoint = null;
 
 function setPlanLoading(on) {
@@ -1633,37 +1641,13 @@ async function computeTrip() {
 
     dedupeSightsAcrossDays(plan.days);
 
-    // Die Etappen-Linie führt jetzt tatsächlich über die (nach Dedupe)
-    // verbliebenen Sehenswürdigkeiten der jeweiligen Etappe, statt sie nur
-    // in ihrer Nähe anzuzeigen – Reihenfolge entspricht bereits der
-    // Fahrtrichtung (routeKm-sortiert), daher keine weitere Optimierung
-    // nötig. Läuft erst NACH dem Dedupe, damit keine Etappe über eine
-    // Sehenswürdigkeit fährt, die ihr am Ende gar nicht mehr zugeordnet ist.
-    const origTotalKm = route.distanceKm;
-    for (const day of plan.days) {
-      if (!day.sights || !day.sights.length) continue;
-      setPlanLoadingText(`Etappe ${day.index} von ${totalLegs}: Route über Sehenswürdigkeiten wird berechnet …`);
-      const viaPoints = day.sights.slice(0, 8).map(s => [s.lat, s.lon]);
-      try {
-        const viaRoute = await withRetry(
-          () => fetchRouteViaPoints([day.from, ...viaPoints, day.to], 'Keine Route über die Sehenswürdigkeiten dieser Etappe gefunden'),
-          2, 1200
-        );
-        day.slice = viaRoute.coords;
-        day.distanceKm = viaRoute.distanceKm;
-        day.routedViaSights = true;
-      } catch (e) {
-        day.sightsRouteNote = 'Route konnte nicht über die Sehenswürdigkeiten geführt werden (' + e.message + ') – Vorschläge bleiben gültig, die Karte zeigt aber die direkte Strecke.';
-      }
-      await sleep(300);
-    }
-    // Gesamtstrecke an die (durch Umwege ggf. längeren) Etappen anpassen;
-    // die Fahrzeit wird proportional mitskaliert, da OSRM sie nur für die
-    // Gesamtroute, nicht pro Etappenpunkt liefert.
-    const newTotalKm = plan.days.reduce((sum, day) => sum + day.distanceKm, 0);
-    route.coords = plan.days.flatMap((day, i) => i === 0 ? day.slice : day.slice.slice(1));
-    route.durationH = origTotalKm > 0 ? route.durationH * (newTotalKm / origTotalKm) : route.durationH;
-    route.distanceKm = newTotalKm;
+    // Strategie: die Erstplanung bleibt die direkte Strecke – erst wenn der
+    // Nutzer gezielt einzelne Sehenswürdigkeiten "für Navigation" auswählt
+    // (siehe toggleSightSelection), wird die Etappe testweise darüber
+    // geführt. Basiswerte für die Gesamtübersicht merken, damit sich die
+    // Fahrzeit bei einer späteren Auswahl proportional mitskalieren lässt.
+    plan.baseTotalKm = route.distanceKm;
+    plan.baseTotalDurationH = route.durationH;
 
     renderResult(startPoint, zielPoint, route, plan);
   } catch (err) {
@@ -1702,8 +1686,8 @@ function renderResult(startPoint, zielPoint, route, plan) {
   document.getElementById('resultSummary').innerHTML = `
     <div class="sum-row"><span class="sum-key">Von</span><span class="sum-val">${escapeHtml(shortName(startPoint.name))}</span></div>
     <div class="sum-row"><span class="sum-key">Nach</span><span class="sum-val">${escapeHtml(shortName(zielPoint.name))}</span></div>
-    <div class="sum-row"><span class="sum-key">Gesamtstrecke</span><span class="sum-val">${Math.round(route.distanceKm)} km</span></div>
-    <div class="sum-row"><span class="sum-key">Reine Fahrzeit</span><span class="sum-val">${route.durationH.toFixed(1)} Std.</span></div>
+    <div class="sum-row"><span class="sum-key">Gesamtstrecke</span><span class="sum-val" id="sum-gesamtstrecke">${Math.round(route.distanceKm)} km</span></div>
+    <div class="sum-row"><span class="sum-key">Reine Fahrzeit</span><span class="sum-val" id="sum-fahrzeit">${route.durationH.toFixed(1)} Std.</span></div>
     <div class="sum-row"><span class="sum-key">Etappen</span><span class="sum-val">${plan.days.length}</span></div>`;
 
   const warnBox = document.getElementById('resultWarning');
@@ -1717,7 +1701,7 @@ function renderResult(startPoint, zielPoint, route, plan) {
   const m = ensureMap();
   if (mapLayer) mapLayer.remove();
   mapLayer = L.layerGroup().addTo(m);
-  const line = L.polyline(route.coords, { color: '#458b00', weight: 4 }).addTo(mapLayer);
+  routeLine = L.polyline(route.coords, { color: '#458b00', weight: 4 }).addTo(mapLayer);
   L.marker(route.coords[0], { icon: numIcon('S', '#2f7a4d') }).addTo(mapLayer)
     .bindPopup('Start: ' + escapeHtml(shortName(startPoint.name)));
 
@@ -1739,7 +1723,7 @@ function renderResult(startPoint, zielPoint, route, plan) {
         );
     });
   });
-  m.fitBounds(line.getBounds(), { padding: [24, 24] });
+  m.fitBounds(routeLine.getBounds(), { padding: [24, 24] });
   setTimeout(() => m.invalidateSize(), 150);
 
   document.getElementById('dayList').innerHTML = plan.days.map(day => dayCardHtml(day, zielPoint)).join('');
@@ -1789,12 +1773,15 @@ function dayCardHtml(day, zielPoint) {
   } else if (!day.sights || !day.sights.length) {
     sightsHtml = aiHint + `<span class="text-muted">${aiSettings.enabled ? 'Weder in der Wunschliste noch über die KI-Vorschläge wurde etwas für diese Etappe gefunden.' : 'Keine Sehenswürdigkeiten – füge Orte zur Wunschliste hinzu oder aktiviere KI-Vorschläge in den Präferenzen.'}</span>`;
   } else {
-    sightsHtml = aiHint + day.sights.map((s, i) => `
-      <div class="sight-item${s.bucket ? ' sight-item-bucket' : ''}" id="sight-${day.index}-${i}">
+    sightsHtml = aiHint + day.sights.map((s, i) => {
+      const selected = (day.selectedSightIdxs || []).includes(i);
+      return `
+      <div class="sight-item${s.bucket ? ' sight-item-bucket' : ''}${selected ? ' sight-item-selected' : ''}" id="sight-${day.index}-${i}">
         <strong>${icon(s.bucket ? 'star' : 'pin')}${escapeHtml(s.name)}</strong>
         <span class="sight-meta">${escapeHtml(s.category)} · ${s.distKm.toFixed(1)} km von der Route</span>
         ${s.description ? `<div class="sight-desc">${escapeHtml(s.description)}</div>` : ''}
         <div class="sight-actions">
+          <button type="button" class="spot-select${selected ? ' spot-select-active' : ''}" onclick="toggleSightSelection(${day.index}, ${i})">${icon(selected ? 'check' : 'flag', 'icon-sm')} ${selected ? 'Für Navigation ausgewählt' : 'Für Navigation auswählen'}</button>
           <a class="spot-link" href="${escapeHtml(s.link || ('https://www.openstreetmap.org/?mlat=' + s.lat + '&mlon=' + s.lon + '#map=17/' + s.lat + '/' + s.lon))}" target="_blank" rel="noopener">Auf Karte anzeigen ${icon('externalLink', 'icon-sm')}</a>
           <a class="spot-link" href="https://www.google.com/search?q=${encodeURIComponent(s.name)}" target="_blank" rel="noopener">Webseite ${icon('externalLink', 'icon-sm')}</a>
           <button type="button" class="spot-link sight-detail-btn" onclick="showSightDetail('sight', ${day.index}, ${i})">${icon('info', 'icon-sm')} Mehr Infos</button>
@@ -1802,15 +1789,20 @@ function dayCardHtml(day, zielPoint) {
           <button type="button" class="spot-link" onclick="showParkingForSight('sight', ${day.index}, ${i})">${icon('parking', 'icon-sm')} Parkmöglichkeit suchen</button>
         </div>
         <div id="parking-${day.index}-${i}"></div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
 
-  const mapsWaypoints = (day.sights || []).map(s => [s.lat, s.lon]);
+  // Nur AUSGEWÄHLTE Sehenswürdigkeiten fließen in den Google-Maps-Link mit
+  // ein – konsistent mit der eigenen Routenführung, die ebenfalls nur die
+  // ausgewählten einbezieht (siehe toggleSightSelection).
+  const selectedSights = (day.selectedSightIdxs || []).map(i => day.sights && day.sights[i]).filter(Boolean);
+  const mapsWaypoints = selectedSights.map(s => [s.lat, s.lon]);
   const selectedCampsite = day.selectedCampsiteIdx != null && day.campsites ? day.campsites[day.selectedCampsiteIdx] : null;
   if (selectedCampsite) mapsWaypoints.push([selectedCampsite.lat, selectedCampsite.lon]);
   const mapsLink = googleMapsRouteLink(day.from, day.to, mapsWaypoints);
   const mapsLinkExtras = [];
-  if ((day.sights || []).length) mapsLinkExtras.push('Sehenswürdigkeiten');
+  if (selectedSights.length) mapsLinkExtras.push('ausgewählte Sehenswürdigkeiten');
   if (selectedCampsite) mapsLinkExtras.push('gewählten Stellplatz');
 
   // Nur die fehlgeschlagene Umweg-Route ist ein Hinweis wert – der
@@ -1839,12 +1831,87 @@ function dayCardHtml(day, zielPoint) {
     </div>`;
 }
 
+function renderDayCard(dayIndex) {
+  const day = currentPlan && currentPlan.days.find(d => d.index === dayIndex);
+  const el = document.getElementById('day-card-' + dayIndex);
+  if (day && el) el.outerHTML = dayCardHtml(day, currentZielPoint);
+}
+
+// Zeichnet die Etappen-Linie auf der Karte aus den AKTUELLEN day.slice-
+// Abschnitten neu – nötig, weil toggleSightSelection einzelne Etappen
+// nachträglich umleiten kann, nachdem die Karte schon einmal gezeichnet ist.
+function redrawRouteLine() {
+  if (!currentPlan || !mapLayer) return;
+  const coords = currentPlan.days.flatMap((day, i) => i === 0 ? day.slice : day.slice.slice(1));
+  if (routeLine) mapLayer.removeLayer(routeLine);
+  routeLine = L.polyline(coords, { color: '#458b00', weight: 4 }).addTo(mapLayer);
+}
+
+// Aktualisiert Gesamtstrecke/Reine Fahrzeit in der Übersicht anhand der
+// aktuellen Etappen-Distanzen. Die Fahrzeit wird proportional zur Basis-
+// route mitskaliert, da OSRM sie nur für die Gesamtroute liefert, nicht
+// pro nachträglich umgeleiteter Etappe.
+function updateOverviewSummary() {
+  if (!currentPlan) return;
+  const newTotalKm = currentPlan.days.reduce((sum, day) => sum + day.distanceKm, 0);
+  const el = document.getElementById('sum-gesamtstrecke');
+  const durEl = document.getElementById('sum-fahrzeit');
+  if (el) el.textContent = Math.round(newTotalKm) + ' km';
+  if (durEl && currentPlan.baseTotalKm > 0) {
+    const newDurationH = currentPlan.baseTotalDurationH * (newTotalKm / currentPlan.baseTotalKm);
+    durEl.textContent = newDurationH.toFixed(1) + ' Std.';
+  }
+}
+
 function selectCampsite(dayIndex, csIndex) {
   const day = currentPlan && currentPlan.days.find(d => d.index === dayIndex);
   if (!day) return;
   day.selectedCampsiteIdx = day.selectedCampsiteIdx === csIndex ? null : csIndex;
-  const el = document.getElementById('day-card-' + dayIndex);
-  if (el) el.outerHTML = dayCardHtml(day, currentZielPoint);
+  renderDayCard(dayIndex);
+}
+
+// Strategie: die Erstplanung bleibt immer die direkte Strecke. Erst wenn
+// hier gezielt eine oder mehrere Sehenswürdigkeiten ausgewählt werden,
+// wird die Etappe testweise darüber geführt (Etappenanfang -> ausgewählte
+// Sehenswürdigkeiten in Fahrtrichtung -> Etappenziel). Wird die letzte
+// Auswahl wieder entfernt, fällt die Etappe auf die gemerkte Basisroute
+// zurück statt neu anzufragen.
+async function toggleSightSelection(dayIndex, sightIdx) {
+  const day = currentPlan && currentPlan.days.find(d => d.index === dayIndex);
+  if (!day) return;
+  if (!day.selectedSightIdxs) day.selectedSightIdxs = [];
+  const pos = day.selectedSightIdxs.indexOf(sightIdx);
+  if (pos === -1) day.selectedSightIdxs.push(sightIdx);
+  else day.selectedSightIdxs.splice(pos, 1);
+  renderDayCard(dayIndex); // Auswahl-Status sofort sichtbar machen
+
+  const selectedSights = day.selectedSightIdxs.map(i => day.sights[i]).filter(Boolean);
+  if (!selectedSights.length) {
+    day.slice = day.baseSlice;
+    day.distanceKm = day.baseDistanceKm;
+    day.routedViaSights = false;
+    day.sightsRouteNote = null;
+  } else {
+    const viaPoints = selectedSights.map(s => [s.lat, s.lon]);
+    try {
+      const viaRoute = await withRetry(
+        () => fetchRouteViaPoints([day.from, ...viaPoints, day.to], 'Keine Route über die ausgewählten Sehenswürdigkeiten gefunden'),
+        2, 1200
+      );
+      day.slice = viaRoute.coords;
+      day.distanceKm = viaRoute.distanceKm;
+      day.routedViaSights = true;
+      day.sightsRouteNote = null;
+    } catch (e) {
+      day.slice = day.baseSlice;
+      day.distanceKm = day.baseDistanceKm;
+      day.routedViaSights = false;
+      day.sightsRouteNote = 'Route konnte nicht über die ausgewählten Sehenswürdigkeiten geführt werden (' + e.message + ') – Etappe bleibt auf der direkten Strecke.';
+    }
+  }
+  renderDayCard(dayIndex);
+  redrawRouteLine();
+  updateOverviewSummary();
 }
 
 function closeSightDetail() {
