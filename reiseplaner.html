@@ -1347,11 +1347,20 @@ function buildAiPrompt(from, to, categories, bufferKm, maxCount) {
     `{"orte":[{"name":"Vollständiger, eindeutig auffindbarer Name inkl. Ort/Region (z. B. 'Burg Eltz, Wierschem' statt nur 'Burg Eltz'), damit er sich zweifelsfrei per Kartensuche finden lässt","beschreibung":"Ein bis zwei Sätze auf Deutsch"}]}`;
 }
 
-function aiErrorMessage(providerLabel, status) {
-  const suffix = status === 429
-    ? ' – Rate-Limit/Kontingent erreicht, bitte kurz warten oder Kontingent im Konto des Anbieters prüfen'
-    : '';
-  return providerLabel + '-Anfrage fehlgeschlagen (HTTP ' + status + ')' + suffix;
+// Liest bei einem Fehler den tatsächlichen Antworttext von Google mit aus
+// (z.B. "RESOURCE_EXHAUSTED: ..." oder ein Hinweis auf fehlendes Billing) –
+// ein nackter HTTP-Statuscode allein lässt sich sonst nicht von einem
+// echten Rate-Limit unterscheiden, was Fehlersuche unnötig erschwert.
+async function aiErrorMessage(providerLabel, res) {
+  let detail = null;
+  try {
+    const body = await res.json();
+    detail = body && body.error && body.error.message;
+  } catch (e) { /* keine JSON-Antwort, z.B. HTML-Fehlerseite eines Proxys */ }
+  const suffix = detail
+    ? ' – ' + detail
+    : (res.status === 429 ? ' – Rate-Limit/Kontingent erreicht, bitte kurz warten oder Kontingent im Konto des Anbieters prüfen' : '');
+  return providerLabel + '-Anfrage fehlgeschlagen (HTTP ' + res.status + ')' + suffix;
 }
 
 // Ruft die konfigurierte KI-API auf. Bei HTTP 429 (Rate-Limit/Kontingent) oder
@@ -1393,7 +1402,7 @@ async function callAiProvider(settings, prompt) {
       return cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
     }
     if (res.status === 429 && attempt === 1) { await sleep(4000); continue; }
-    throw new Error(aiErrorMessage(providerLabel, res.status));
+    throw new Error(await aiErrorMessage(providerLabel, res));
   }
 }
 
