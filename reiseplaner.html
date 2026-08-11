@@ -678,8 +678,8 @@ function loadTripInputs() {
 
 // ── Wunschliste ──
 // Frei vom Nutzer gepflegte Liste "unbedingt sehen wollen"-Sehenswürdigkeiten
-// (siehe BUCKET_BUFFER_KM & bucketItemsForSlice weiter unten): wird bei der
-// Etappenplanung vor den KI-Vorschlägen berücksichtigt.
+// (siehe bucketItemsForSlice weiter unten): wird bei der Etappenplanung vor
+// den KI-Vorschlägen berücksichtigt.
 let bucketlist = [];
 
 function saveBucketlist() {
@@ -1294,31 +1294,20 @@ function projectOntoRoute(slice, cum, lat, lon) {
   return { distKm: minDist, routeKm: cum[minIdx] };
 }
 
-// Wunschliste-Treffer werden bewusst mit einem größeren Radius gesucht als
-// die automatischen Vorschläge (siehe umwegKm-Präferenz): Diese Orte hat
-// der Nutzer gezielt ausgewählt, sie sollen nicht an einer knapp
-// bemessenen "akzeptabler Umweg"-Einstellung für automatische Funde
-// scheitern.
-const BUCKET_BUFFER_KM = 60;
-
-// Die KI kennt nur die groben GPS-Koordinaten von Etappenanfang/-ende, nicht
-// den genauen (oft kurvigen) Streckenverlauf – ein Vorschlag, der 20-30 km
-// abseits der Luftlinie liegt, kann trotzdem sinnvoll "an der Strecke"
-// liegen. Mit der knappen "Akzeptierter Umweg für Spots"-Präferenz (Default
-// 15 km) als Prüfradius wurden dadurch fast alle KI-Vorschläge verworfen,
-// obwohl die KI-Anfrage selbst erfolgreich war – wirkte wie "KI liefert
-// nichts". Deshalb wie bei der Wunschliste ein großzügigerer, von dieser
-// Präferenz unabhängiger Radius.
-const AI_BUFFER_KM = 60;
+// Sowohl die Wunschliste als auch die KI-Vorschläge für Sehenswürdigkeiten
+// nutzen den vom Nutzer eingestellten "Akzeptierter Umweg für Spots"-Radius
+// (prefs.umwegKm) – so lässt sich die Anzahl der Treffer aus beiden Quellen
+// direkt über diese eine Präferenz steuern, statt über einen festen,
+// unsichtbaren Hintergrundwert.
 const CAMPSITE_AI_BUFFER_KM = 60;
 
-function bucketItemsForSlice(slice) {
+function bucketItemsForSlice(slice, radiusKm) {
   if (!bucketlist.length) return [];
   const cum = cumulativeKm(slice);
   const matches = [];
   bucketlist.forEach(b => {
     const proj = projectOntoRoute(slice, cum, b.lat, b.lon);
-    if (proj.distKm <= BUCKET_BUFFER_KM) {
+    if (proj.distKm <= radiusKm) {
       matches.push({
         name: b.label, lat: b.lat, lon: b.lon, category: 'Wunschliste',
         distKm: proj.distKm, routeKm: proj.routeKm,
@@ -1500,8 +1489,9 @@ async function findAiCampsites(coord, settings, p) {
 // ausgeht – sonst zeigen wir einfach die Wunschliste allein.
 async function findBestSights(slice, p) {
   const preferredCats = p.sights.length ? p.sights : SIGHT_CATEGORY_KEYS;
+  const radiusKm = p.umwegKm;
 
-  const bucketMatches = bucketItemsForSlice(slice);
+  const bucketMatches = bucketItemsForSlice(slice, radiusKm);
   const remainingSlots = Math.max(p.spotsProTag - bucketMatches.length, 0);
   const bucketKeys = new Set(bucketMatches.map(b => b.name.trim().toLowerCase()));
 
@@ -1517,7 +1507,7 @@ async function findBestSights(slice, p) {
       return true;
     });
     const list = [...bucketMatches, ...filteredAi.slice(0, remainingSlots)].sort((a, b) => a.routeKm - b.routeKm);
-    return { list, radiusKm: AI_BUFFER_KM, aiNote };
+    return { list, radiusKm, aiNote };
   };
 
   if (remainingSlots === 0 || !aiSettings.enabled || !aiSettings.apiKey) {
@@ -1525,7 +1515,7 @@ async function findBestSights(slice, p) {
   }
 
   try {
-    const { items: aiItems, proposedCount } = await findAiSights(slice, aiSettings, preferredCats, AI_BUFFER_KM);
+    const { items: aiItems, proposedCount } = await findAiSights(slice, aiSettings, preferredCats, radiusKm);
     let aiNote;
     if (proposedCount === 0) {
       aiNote = 'Die KI hat für diese Etappe keine Vorschläge geliefert.';
@@ -1564,10 +1554,10 @@ function setPlanLoadingText(msg) {
   if (el) el.textContent = msg;
 }
 
-// Weil sowohl die Wunschliste (BUCKET_BUFFER_KM) als auch die KI-Suche
-// (AI_BUFFER_KM) mit einem großzügigen Korridor von 60 km arbeiten, kann
-// dieselbe Sehenswürdigkeit nahe einer Etappengrenze in den Korridor von
-// ZWEI aufeinanderfolgenden Etappen fallen und dadurch doppelt auftauchen.
+// Weil sowohl die Wunschliste als auch die KI-Suche mit demselben, vom
+// Nutzer eingestellten Umweg-Radius arbeiten, kann dieselbe Sehenswürdigkeit
+// nahe einer Etappengrenze in den Korridor von ZWEI aufeinanderfolgenden
+// Etappen fallen und dadurch doppelt auftauchen.
 // Sie soll aber nur auf der Etappe erscheinen, der sie tatsächlich am
 // nächsten liegt (kleinster distKm) – auf allen anderen Etappen wird sie
 // wieder entfernt.
