@@ -127,6 +127,7 @@ details summary { font-size: 13px; font-weight: 600; color: var(--accent-dark); 
     <div class="grid2">
       <label class="f"><span class="lbl">Rente / Monat (€)</span><input type="text" id="pension" inputmode="decimal" placeholder="0"></label>
       <label class="f"><span class="lbl">Vermietung / Monat (€)</span><input type="text" id="rent" inputmode="decimal" placeholder="0"></label>
+      <label class="f full"><span class="lbl">Selbstständige Arbeit / Monat (€)</span><input type="text" id="self" inputmode="decimal" placeholder="0"></label>
     </div>
     <div class="calc" id="calc"></div>
     <div id="sollIst"></div>
@@ -147,7 +148,7 @@ details summary { font-size: 13px; font-weight: 600; color: var(--accent-dark); 
     <h2>Stichtage</h2>
     <p class="hint">„Soll/Ist“ vergleicht dein tatsächliches Vermögen mit dem, was die Rechnung vom vorigen Stichtag erwartet hat (vor Inflation).</p>
     <div class="tbl-wrap"><table class="hist"><thead><tr><th>Stichtag</th><th>Vermögen €</th><th>Cashflow* €</th><th>Soll/Ist €</th><th>reicht bis Alter</th><th></th></tr></thead><tbody id="histRows"></tbody></table></div>
-    <p class="hint" style="margin:8px 0 0">* nach Steuern auf Rente und Vermietung</p>
+    <p class="hint" style="margin:8px 0 0">* nach Steuern auf Rente, Vermietung und selbstständige Arbeit</p>
   </div>
 
   <!-- 2. Grundwerte -->
@@ -159,17 +160,18 @@ details summary { font-size: 13px; font-weight: 600; color: var(--accent-dark); 
       <label class="f"><span class="lbl">Planen bis Alter</span><input type="text" id="targetAge" inputmode="numeric"></label>
       <label class="f"><span class="lbl">Rendite Depot p.a. (%)</span><input type="text" id="ret" inputmode="decimal"></label>
       <label class="f"><span class="lbl">Inflation p.a. (%)</span><input type="text" id="infl" inputmode="decimal"></label>
-      <label class="f"><span class="lbl">Steuer Rente &amp; V+V (%)</span><input type="text" id="taxInc" inputmode="decimal"></label>
+      <label class="f"><span class="lbl">Steuer auf Einkünfte (%)</span><input type="text" id="taxInc" inputmode="decimal"></label>
       <label class="f"><span class="lbl">Steuer Kapitalerträge (%)</span><input type="text" id="taxCap" inputmode="decimal"></label>
     </div>
     <details>
-      <summary>Spätere Änderung, z. B. Rentenbeginn oder Verkauf einer Immobilie</summary>
-      <p class="hint" style="margin-top:8px">Ab diesem Alter gelten neue Monatswerte (in heutiger Kaufkraft). Leere Felder = keine Änderung.</p>
+      <summary>Spätere Änderung, z. B. Rentenbeginn, Ende der Selbstständigkeit oder Verkauf einer Immobilie</summary>
+      <p class="hint" style="margin-top:8px">Ab diesem Alter gelten neue Monatswerte (in heutiger Kaufkraft). Leere Felder = keine Änderung. Ändern sich nur Einkünfte, passt die App den Cashflow um die Differenz selbst an – „Cashflow dann“ nur ausfüllen, wenn sich auch die Ausgaben ändern (dann als Gesamtwert inkl. der neuen Einkünfte).</p>
       <div class="grid2">
         <label class="f"><span class="lbl">Ab Alter</span><input type="text" id="chAge" inputmode="numeric"></label>
         <label class="f"><span class="lbl">Cashflow dann (€)</span><span class="signed"><button type="button" class="pm" data-sign="chCf" aria-label="Vorzeichen wechseln">±</button><input type="text" id="chCf" inputmode="decimal"></span></label>
         <label class="f"><span class="lbl">Rente dann (€)</span><input type="text" id="chPension" inputmode="decimal"></label>
         <label class="f"><span class="lbl">V+V dann (€)</span><input type="text" id="chRent" inputmode="decimal"></label>
+        <label class="f full"><span class="lbl">Selbstständige Arbeit dann (€)</span><input type="text" id="chSelf" inputmode="decimal"></label>
       </div>
     </details>
   </div>
@@ -185,7 +187,7 @@ details summary { font-size: 13px; font-weight: 600; color: var(--accent-dark); 
     <div id="backupMsg"></div>
   </div>
 
-  <p class="foot">Vereinfachte Modellrechnung: gleichbleibende Rendite, Steuern pauschal auf die gesamte Rendite und auf Rente/V+V. Keine Anlage- oder Steuerberatung.</p>
+  <p class="foot">Vereinfachte Modellrechnung: gleichbleibende Rendite, Steuern pauschal auf die gesamte Rendite und auf Rente, V+V und selbstständige Arbeit. Keine Anlage- oder Steuerberatung.</p>
 </div>
 
 <script>
@@ -216,9 +218,9 @@ const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 
 const fmtDate = iso => { const [y, m, d] = iso.split('-'); return `${d}.${m}.${y}`; };
 const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
 
-let settings = { birth: '', targetAge: 95, ret: 5, infl: 2.5, taxInc: 30, taxCap: 30, chAge: '', chCf: '', chPension: '', chRent: '' };
+let settings = { birth: '', targetAge: 95, ret: 5, infl: 2.5, taxInc: 30, taxCap: 30, chAge: '', chCf: '', chPension: '', chRent: '', chSelf: '' };
 let entries = [];
-let draft = { date: today(), assets: '', cf: '', pension: '', rent: '' };
+let draft = { date: today(), assets: '', cf: '', pension: '', rent: '', self: '' };
 
 function readJSON(key, fallback) {
   try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch (e) { return fallback; }
@@ -238,7 +240,7 @@ function load() {
   const d = readJSON(DRAFT_KEY, null);
   const last = entries[entries.length - 1];
   if (d) Object.assign(draft, d);
-  else if (last) Object.assign(draft, { assets: last.assets, cf: last.cf, pension: last.pension, rent: last.rent });
+  else if (last) Object.assign(draft, { assets: last.assets, cf: last.cf, pension: last.pension, rent: last.rent, self: last.self ?? '' });
   if (!d || (last && d.date <= last.date)) draft.date = today();
 }
 const saveSettings = () => writeJSON(SETTINGS_KEY, settings);
@@ -246,9 +248,10 @@ const saveEntries = () => writeJSON(ENTRIES_KEY, entries);
 const saveDraft = () => writeJSON(DRAFT_KEY, draft);
 
 // ── Rechenkern ──────────────────────────────────────────
-// Rente und V+V kommen brutto aufs Girokonto; die Steuer darauf zieht die App pauschal ab.
-function effectiveCf(cf, pension, rent) {
-  return num(cf) - num(settings.taxInc) / 100 * (num(pension) + num(rent));
+// Rente, V+V und Einkünfte aus selbstständiger Arbeit kommen brutto aufs Girokonto;
+// die Steuer darauf zieht die App pauschal ab.
+function effectiveCf(cf, pension, rent, self) {
+  return num(cf) - num(settings.taxInc) / 100 * (num(pension) + num(rent) + num(self));
 }
 function netReturn() { return num(settings.ret) / 100 * (1 - num(settings.taxCap) / 100); }
 function realMonthlyRate() {
@@ -263,10 +266,13 @@ function ageAt(iso) {
 function cfAtAge(age, base) {
   const ch = parseNum(settings.chAge);
   if (!isFinite(ch) || age < ch) return base.eff;
-  const cf = has(settings.chCf) ? settings.chCf : base.cf;
-  const pension = has(settings.chPension) ? settings.chPension : base.pension;
-  const rent = has(settings.chRent) ? settings.chRent : base.rent;
-  return effectiveCf(cf, pension, rent);
+  const pension = has(settings.chPension) ? num(settings.chPension) : base.pension;
+  const rent = has(settings.chRent) ? num(settings.chRent) : base.rent;
+  const self = has(settings.chSelf) ? num(settings.chSelf) : base.self;
+  // Ohne eigenen Cashflow-Wert ändert sich der Cashflow um genau die geänderten Bruttoeinkünfte.
+  const cf = has(settings.chCf) ? num(settings.chCf)
+    : base.cf + (pension - base.pension) + (rent - base.rent) + (self - base.self);
+  return effectiveCf(cf, pension, rent, self);
 }
 // Monatliche Simulation: Kapital wächst mit realer Netto-Rendite, jeder Monat bringt den Cashflow dazu.
 function simulate(capital, age0, base, extra = 0, untilAge = MAX_AGE, stopAtZero = true) {
@@ -297,7 +303,7 @@ function expectedFrom(prev, dateIso) {
   const months = (new Date(dateIso) - new Date(prev.date)) / (DAYS_PER_MONTH * 864e5);
   if (months <= 0) return null;
   const rm = nominalMonthlyRate();
-  const eff = effectiveCf(prev.cf, prev.pension, prev.rent);
+  const eff = effectiveCf(prev.cf, prev.pension, prev.rent, prev.self);
   const growth = Math.pow(1 + rm, months);
   // Cashflow fließt monatlich zu (Rentenendwert)
   const annuity = rm ? (growth - 1) / rm : months;
@@ -319,12 +325,12 @@ function prevEntryBefore(dateIso) {
 // ── Anzeige ─────────────────────────────────────────────
 let lastSim = null;
 function update() {
-  const base = { cf: num(draft.cf), pension: num(draft.pension), rent: num(draft.rent) };
-  base.eff = effectiveCf(base.cf, base.pension, base.rent);
+  const base = { cf: num(draft.cf), pension: num(draft.pension), rent: num(draft.rent), self: num(draft.self) };
+  base.eff = effectiveCf(base.cf, base.pension, base.rent, base.self);
   const tax = base.cf - base.eff;
   $('calc').innerHTML = `
     <div><span>Cashflow Girokonto</span><span>${signed(base.cf)}</span></div>
-    <div><span>− Steuer ${num(settings.taxInc)} % auf ${eur(base.pension + base.rent)}</span><span>${signed(-tax)}</span></div>
+    <div><span>− Steuer ${num(settings.taxInc)} % auf ${eur(base.pension + base.rent + base.self)}</span><span>${signed(-tax)}</span></div>
     <div class="tot"><span>Wirksamer Cashflow / Monat</span><span style="color:${base.eff < 0 ? 'var(--red)' : 'var(--green)'}">${signed(base.eff)}</span></div>`;
 
   // Soll/Ist gegenüber dem vorigen Stichtag
@@ -446,8 +452,8 @@ function drawChart() {
 function entryRunOut(e) {
   const age = ageAt(e.date);
   if (age == null) return undefined;
-  const base = { cf: num(e.cf), pension: num(e.pension), rent: num(e.rent) };
-  base.eff = effectiveCf(base.cf, base.pension, base.rent);
+  const base = { cf: num(e.cf), pension: num(e.pension), rent: num(e.rent), self: num(e.self) };
+  base.eff = effectiveCf(base.cf, base.pension, base.rent, base.self);
   return simulate(num(e.assets), age, base).runOut;
 }
 function renderHist() {
@@ -457,7 +463,7 @@ function renderHist() {
     const exp = prev ? expectedFrom(prev, e.date) : null;
     const diff = exp != null ? num(e.assets) - exp : null;
     const ro = entryRunOut(e);
-    const eff = effectiveCf(e.cf, e.pension, e.rent);
+    const eff = effectiveCf(e.cf, e.pension, e.rent, e.self);
     return `<tr>
       <td>${fmtDate(e.date).replace(/\.\d\d(\d\d)$/, '.$1')}</td>
       <td>${fmtInt(num(e.assets))}</td>
@@ -470,7 +476,7 @@ function renderHist() {
 }
 function saveEntry() {
   if (!draft.date || !has(draft.assets) || !has(draft.cf)) { alert('Bitte Stichtag, Vermögen und Cashflow eintragen.'); return; }
-  const e = { date: draft.date, assets: num(draft.assets), cf: num(draft.cf), pension: num(draft.pension), rent: num(draft.rent) };
+  const e = { date: draft.date, assets: num(draft.assets), cf: num(draft.cf), pension: num(draft.pension), rent: num(draft.rent), self: num(draft.self) };
   const i = entries.findIndex(x => x.date === e.date);
   if (i >= 0 && !confirm(`Für den ${fmtDate(e.date)} gibt es schon einen Eintrag. Überschreiben?`)) return;
   if (i >= 0) entries[i] = e; else entries.push(e);
@@ -509,7 +515,7 @@ function importData(file) {
 }
 
 // ── Verdrahtung ─────────────────────────────────────────
-const MONEY_FIELDS = new Set(['assets', 'cf', 'pension', 'rent', 'chCf', 'chPension', 'chRent']);
+const MONEY_FIELDS = new Set(['assets', 'cf', 'pension', 'rent', 'self', 'chCf', 'chPension', 'chRent', 'chSelf']);
 // Formatiert einen Betrag als 1.234.567,89 und behält die Cursorposition (gezählt in Ziffern/Komma/Minus).
 function groupDigits(v) {
   v = String(v ?? '');
@@ -537,8 +543,8 @@ const fieldValue = (k, v) => {
   if (!MONEY_FIELDS.has(k) || v === '' || v == null) return v ?? '';
   return groupDigits(typeof v === 'number' ? String(v).replace('.', ',') : String(parseNum(v)).replace('.', ',').replace('NaN', ''));
 };
-const SETTING_FIELDS = ['birth', 'targetAge', 'ret', 'infl', 'taxInc', 'taxCap', 'chAge', 'chCf', 'chPension', 'chRent'];
-const DRAFT_FIELDS = ['date', 'assets', 'cf', 'pension', 'rent'];
+const SETTING_FIELDS = ['birth', 'targetAge', 'ret', 'infl', 'taxInc', 'taxCap', 'chAge', 'chCf', 'chPension', 'chRent', 'chSelf'];
+const DRAFT_FIELDS = ['date', 'assets', 'cf', 'pension', 'rent', 'self'];
 function fillFields() {
   for (const k of SETTING_FIELDS) $(k).value = fieldValue(k, settings[k]);
   for (const k of DRAFT_FIELDS) $(k).value = fieldValue(k, draft[k]);
