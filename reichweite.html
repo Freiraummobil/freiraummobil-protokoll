@@ -44,42 +44,33 @@ body { padding: env(safe-area-inset-top, 0) 0 40px; }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
 .card h2 { font-size: 15px; font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
 .card h2 .n { width: 22px; height: 22px; border-radius: 50%; background: var(--accent-light); color: var(--accent-dark); font-size: 12px; display: inline-flex; align-items: center; justify-content: center; }
+.card h3 { font-size: 13px; font-weight: 700; margin: 6px 0 8px; }
 .hint { font-size: 12.5px; color: var(--ink-soft); line-height: 1.45; margin-bottom: 12px; }
 
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.full { grid-column: 1 / -1; }
 label.f { display: block; font-size: 12px; font-weight: 600; color: var(--ink-soft); margin-bottom: 10px; }
-label.f input, label.f select { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--field-bg); font-size: 15px; color: var(--ink); font-family: inherit; }
-input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+label.f small { font-weight: 400; }
+label.f input { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--field-bg); font-size: 15px; color: var(--ink); font-family: inherit; }
+input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
 
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; border-radius: var(--radius-pill); border: 1px solid var(--border); background: var(--card); color: var(--ink); font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn.small { padding: 6px 12px; font-size: 13px; }
+.btn.block { width: 100%; padding: 12px; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 input[type=file] { display: none; }
 
-.assets { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-.assets td { padding: 4px 3px; vertical-align: middle; }
-.assets input { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--field-bg); font-size: 14px; font-family: inherit; color: var(--ink); }
-.assets td.v { width: 38%; }
-.assets td.x { width: 34px; }
-.assets .del { border: none; background: none; font-size: 18px; color: var(--ink-soft); cursor: pointer; padding: 4px; }
-.sum { display: flex; justify-content: space-between; font-weight: 700; padding: 8px 2px 0; border-top: 1px solid var(--border); margin-top: 4px; }
-
-.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 4px; }
-.kpi { background: var(--field-bg); border-radius: var(--radius-sm); padding: 10px; }
-.kpi .l { font-size: 11px; color: var(--ink-soft); font-weight: 600; }
-.kpi .v { font-size: 16px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.calc { background: var(--field-bg); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13px; margin: 2px 0 12px; font-variant-numeric: tabular-nums; }
+.calc div { display: flex; justify-content: space-between; padding: 2px 0; }
+.calc .tot { font-weight: 800; border-top: 1px solid var(--border); margin-top: 4px; padding-top: 6px; }
 .msg { font-size: 12.5px; padding: 10px 12px; border-radius: var(--radius-sm); margin-top: 10px; line-height: 1.45; }
 .msg.ok { background: var(--green-bg); color: var(--green); }
 .msg.warn { background: var(--amber-bg); color: var(--amber); }
 .msg.err { background: var(--red-bg); color: var(--red); }
 
-details { margin-top: 10px; }
+details { margin-top: 6px; }
 details summary { font-size: 13px; font-weight: 600; color: var(--accent-dark); cursor: pointer; }
-.months { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; font-variant-numeric: tabular-nums; }
-.months th, .months td { text-align: right; padding: 5px 4px; border-bottom: 1px solid var(--border); }
-.months th:first-child, .months td:first-child { text-align: left; }
-.months th { font-size: 11px; color: var(--ink-soft); font-weight: 600; }
 
 .result { text-align: center; padding: 22px 18px; }
 .result .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: var(--radius-pill); margin-bottom: 10px; }
@@ -88,17 +79,19 @@ details summary { font-size: 13px; font-weight: 600; color: var(--accent-dark); 
 .result .badge.err { background: var(--red-bg); color: var(--red); }
 .result .big { font-size: 34px; font-weight: 800; letter-spacing: -0.8px; line-height: 1.1; }
 .result .sub { font-size: 14px; color: var(--ink-soft); margin-top: 6px; line-height: 1.45; }
-.result .extra { font-size: 13px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); line-height: 1.5; text-align: left; }
+.result .extra { font-size: 13px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); line-height: 1.55; text-align: left; }
 
 .chart-box { position: relative; margin-top: 8px; }
 .chart-box svg { width: 100%; height: auto; display: block; touch-action: pan-y; }
 .chart-box .tip { position: absolute; pointer-events: none; background: var(--ink); color: #fff; font-size: 12px; padding: 6px 9px; border-radius: 8px; white-space: nowrap; transform: translate(-50%, -110%); display: none; font-variant-numeric: tabular-nums; }
 .axis text { font-size: 10px; fill: var(--ink-soft); }
 
+.tbl-wrap { overflow-x: auto; }
 .hist { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
-.hist td, .hist th { padding: 6px 4px; border-bottom: 1px solid var(--border); text-align: right; }
+.hist td, .hist th { padding: 6px 4px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
 .hist td:first-child, .hist th:first-child { text-align: left; }
 .hist th { font-size: 11px; color: var(--ink-soft); font-weight: 600; }
+.hist .del { border: none; background: none; color: var(--ink-soft); font-size: 16px; cursor: pointer; }
 .foot { font-size: 11.5px; color: var(--ink-soft); line-height: 1.5; padding: 4px 4px 0; }
 </style>
 </head>
@@ -113,63 +106,23 @@ details summary { font-size: 13px; font-weight: 600; color: var(--accent-dark); 
     <a href="index.html">← Start</a>
   </div>
 
-  <!-- 1. Person -->
+  <!-- 1. Stichtag -->
   <div class="card">
-    <h2><span class="n">1</span>Du &amp; Annahmen</h2>
-    <p class="hint">Alle Beträge werden in heutiger Kaufkraft gerechnet: Die Rendite wird um die Inflation bereinigt.</p>
+    <h2><span class="n">1</span>Stichtag erfassen</h2>
+    <p class="hint">Einmal im Monat eintragen. Die Werte vom letzten Stichtag sind vorausgefüllt – nur ändern, was sich geändert hat.</p>
     <div class="grid2">
-      <label class="f">Geburtsdatum<input type="date" id="birth"></label>
-      <label class="f">Planen bis Alter<input type="number" id="targetAge" min="50" max="110" step="1" inputmode="numeric"></label>
-      <label class="f">Rendite p.a. (%)<input type="number" id="ret" step="0.1" inputmode="decimal"></label>
-      <label class="f">Inflation p.a. (%)<input type="number" id="infl" step="0.1" inputmode="decimal"></label>
+      <label class="f">Stichtag<input type="date" id="date"></label>
+      <label class="f">Vermögen gesamt (€)<input type="number" id="assets" step="1000" inputmode="decimal" placeholder="Depot + Konten"></label>
+      <label class="f full">Cashflow Girokonto / Monat (€) <small>– Überschuss (+) oder Fehlbetrag (−), ohne Sparpläne und ohne Steuervorauszahlungen</small><input type="number" id="cf" step="50" inputmode="decimal" placeholder="z. B. -1500"></label>
     </div>
-  </div>
-
-  <!-- 2. Vermögen -->
-  <div class="card">
-    <h2><span class="n">2</span>Vermögen (aus Parqet)</h2>
-    <p class="hint">In Parqet: Portfolio → Export (CSV). Die Datei hier laden – die App erkennt Name und Wert je Position. Alternativ Werte von Hand eintragen oder anpassen.</p>
-    <table class="assets"><tbody id="assetRows"></tbody></table>
-    <div class="btn-row">
-      <button class="btn small" id="addAsset">+ Position</button>
-      <button class="btn small" id="importAssetsBtn">Parqet-CSV laden</button>
-      <button class="btn small" id="clearAssets">Leeren</button>
-      <input type="file" id="assetFile" accept=".csv,text/csv,text/plain">
+    <h3>Darin enthalten: steuerpflichtige Einnahmen (brutto)</h3>
+    <div class="grid2">
+      <label class="f">Rente / Monat (€)<input type="number" id="pension" step="10" inputmode="decimal" placeholder="0"></label>
+      <label class="f">Vermietung &amp; Verpachtung / Monat (€)<input type="number" id="rent" step="10" inputmode="decimal" placeholder="0"></label>
     </div>
-    <div class="sum"><span>Gesamtvermögen</span><span id="assetSum">0 €</span></div>
-    <div id="assetMsg"></div>
-  </div>
-
-  <!-- 3. Konto -->
-  <div class="card">
-    <h2><span class="n">3</span>Girokonto: Einnahmen &amp; Ausgaben</h2>
-    <p class="hint">Umsätze deines laufenden Kontos als CSV aus dem Online-Banking exportieren (am besten 6–12 volle Monate) und hier laden. Die App bildet den Monatsdurchschnitt – oder du trägst die Werte direkt ein.</p>
-    <div class="btn-row" style="margin-bottom:12px">
-      <button class="btn small" id="importBankBtn">Konto-CSV laden</button>
-      <input type="file" id="bankFile" accept=".csv,text/csv,text/plain">
-    </div>
-    <label class="f">Nicht mitzählen (Stichwörter, kommagetrennt)<input type="text" id="exclude" placeholder="z. B. Sparplan, Depot, Umbuchung"></label>
-    <div id="bankMsg"></div>
-    <div id="bankDetail"></div>
-    <div class="grid2" style="margin-top:10px">
-      <label class="f">Einnahmen / Monat (€)<input type="number" id="income" step="10" inputmode="decimal"></label>
-      <label class="f">Ausgaben / Monat (€)<input type="number" id="expenses" step="10" inputmode="decimal"></label>
-    </div>
-    <div class="kpis">
-      <div class="kpi"><div class="l">Einnahmen</div><div class="v" id="kIn">–</div></div>
-      <div class="kpi"><div class="l">Ausgaben</div><div class="v" id="kOut">–</div></div>
-      <div class="kpi"><div class="l">Cashflow (Δ)</div><div class="v" id="kDelta">–</div></div>
-    </div>
-    <details>
-      <summary>Späterer Wechsel, z. B. Rentenbeginn</summary>
-      <p class="hint" style="margin-top:8px">Ab diesem Alter gelten neue Monatswerte. Leer lassen = keine Änderung.</p>
-      <div class="grid2">
-        <label class="f">Ab Alter<input type="number" id="chAge" min="18" max="110" inputmode="numeric"></label>
-        <span></span>
-        <label class="f">Einnahmen dann (€)<input type="number" id="chIncome" step="10" inputmode="decimal"></label>
-        <label class="f">Ausgaben dann (€)<input type="number" id="chExpenses" step="10" inputmode="decimal"></label>
-      </div>
-    </details>
+    <div class="calc" id="calc"></div>
+    <div id="sollIst"></div>
+    <button class="btn primary block" id="saveEntry" style="margin-top:12px">Stichtag speichern</button>
   </div>
 
   <!-- Ergebnis -->
@@ -177,377 +130,231 @@ details summary { font-size: 13px; font-weight: 600; color: var(--accent-dark); 
 
   <div class="card">
     <h2>Kapitalverlauf</h2>
-    <p class="hint">Vermögen in heutiger Kaufkraft, nach Lebensalter. Tippen oder darüberfahren für Details.</p>
-    <div class="chart-box" id="chartBox"><svg id="chart" viewBox="0 0 360 220" role="img" aria-label="Kapitalverlauf nach Alter"></svg><div class="tip" id="tip"></div></div>
+    <p class="hint">Voraussichtliches Vermögen nach Steuern in heutiger Kaufkraft. Tippen oder darüberfahren für Details.</p>
+    <div class="chart-box"><svg id="chart" viewBox="0 0 360 220" role="img" aria-label="Voraussichtlicher Kapitalverlauf nach Alter"></svg><div class="tip" id="tip"></div></div>
+  </div>
+
+  <!-- Verlauf -->
+  <div class="card">
+    <h2>Stichtage</h2>
+    <p class="hint">„Soll/Ist“ vergleicht dein tatsächliches Vermögen mit dem, was die Rechnung vom vorigen Stichtag erwartet hat (vor Inflation).</p>
+    <div class="tbl-wrap"><table class="hist"><thead><tr><th>Stichtag</th><th>Vermögen</th><th>Cashflow*</th><th>Soll/Ist</th><th>reicht bis</th><th></th></tr></thead><tbody id="histRows"></tbody></table></div>
+    <p class="hint" style="margin:8px 0 0">* nach Steuern auf Rente und Vermietung</p>
+  </div>
+
+  <!-- 2. Grundwerte -->
+  <div class="card">
+    <h2><span class="n">2</span>Grundwerte &amp; Steuern</h2>
+    <p class="hint">Nur einmal einstellen. Gerechnet wird in heutiger Kaufkraft: Die Rendite wird erst versteuert, dann um die Inflation bereinigt.</p>
+    <div class="grid2">
+      <label class="f">Geburtsdatum<input type="date" id="birth"></label>
+      <label class="f">Planen bis Alter<input type="number" id="targetAge" min="50" max="110" step="1" inputmode="numeric"></label>
+      <label class="f">Rendite Depot p.a. (%)<input type="number" id="ret" step="0.1" inputmode="decimal"></label>
+      <label class="f">Inflation p.a. (%)<input type="number" id="infl" step="0.1" inputmode="decimal"></label>
+      <label class="f">Steuer Rente &amp; V+V (%)<input type="number" id="taxInc" step="1" inputmode="decimal"></label>
+      <label class="f">Steuer Kapitalerträge (%)<input type="number" id="taxCap" step="1" inputmode="decimal"></label>
+    </div>
+    <details>
+      <summary>Spätere Änderung, z. B. Rentenbeginn oder Verkauf einer Immobilie</summary>
+      <p class="hint" style="margin-top:8px">Ab diesem Alter gelten neue Monatswerte (in heutiger Kaufkraft). Leere Felder = keine Änderung.</p>
+      <div class="grid2">
+        <label class="f">Ab Alter<input type="number" id="chAge" min="18" max="110" inputmode="numeric"></label>
+        <label class="f">Cashflow Girokonto dann (€)<input type="number" id="chCf" step="50" inputmode="decimal"></label>
+        <label class="f">Rente dann (€)<input type="number" id="chPension" step="10" inputmode="decimal"></label>
+        <label class="f">V+V dann (€)<input type="number" id="chRent" step="10" inputmode="decimal"></label>
+      </div>
+    </details>
   </div>
 
   <div class="card">
-    <h2>Monatsverlauf</h2>
-    <p class="hint">Einmal im Monat Vermögen und Kontoumsätze aktualisieren und den Stand speichern – so siehst du, wie sich die Reichweite entwickelt.</p>
-    <div class="btn-row" style="margin-bottom:10px">
-      <button class="btn primary small" id="saveSnap">Stand für diesen Monat speichern</button>
+    <h2>Datensicherung</h2>
+    <p class="hint">Die Daten liegen nur auf diesem Gerät. Sicherungsdatei gelegentlich speichern – damit lassen sie sich auch auf ein anderes Gerät übertragen.</p>
+    <div class="btn-row">
+      <button class="btn small" id="exportBtn">Sicherung speichern</button>
+      <button class="btn small" id="importBtn">Sicherung laden</button>
+      <input type="file" id="importFile" accept=".json,application/json">
     </div>
-    <table class="hist"><thead><tr><th>Monat</th><th>Vermögen</th><th>Δ / Monat</th><th>reicht bis</th><th></th></tr></thead><tbody id="histRows"></tbody></table>
+    <div id="backupMsg"></div>
   </div>
 
-  <p class="foot">Alle Daten bleiben nur auf diesem Gerät (lokaler Speicher). Vereinfachte Modellrechnung ohne Steuern, Sozialabgaben und Schwankungen – keine Anlageberatung.</p>
+  <p class="foot">Vereinfachte Modellrechnung: gleichbleibende Rendite, Steuern pauschal auf die gesamte Rendite und auf Rente/V+V. Keine Anlage- oder Steuerberatung.</p>
 </div>
 
 <script>
-const STATE_KEY = 'reichweite_state_v1';
-const HIST_KEY = 'reichweite_history_v1';
+const SETTINGS_KEY = 'reichweite_settings_v2';
+const ENTRIES_KEY = 'reichweite_entries_v2';
+const DRAFT_KEY = 'reichweite_draft_v2';
 const MAX_AGE = 110;
+const DAYS_PER_MONTH = 365.2425 / 12;
 
 const $ = id => document.getElementById(id);
-const eur = (n, digits = 0) => (isFinite(n) ? n : 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: digits, minimumFractionDigits: digits });
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const has = v => v !== '' && v != null && isFinite(parseFloat(v));
+const eur = n => (isFinite(n) ? n : 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+const signed = n => (n > 0 ? '+' : '') + eur(n);
 const eurShort = n => Math.abs(n) >= 1e6 ? (n / 1e6).toLocaleString('de-DE', { maximumFractionDigits: 1 }) + ' Mio €'
   : Math.abs(n) >= 1e3 ? Math.round(n / 1e3).toLocaleString('de-DE') + ' T€' : Math.round(n) + ' €';
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+const fmtDate = iso => { const [y, m, d] = iso.split('-'); return `${d}.${m}.${y}`; };
+const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
 
-let state = {
-  birth: '', targetAge: 95, ret: 5, infl: 2.5,
-  assets: [], income: '', expenses: '', exclude: 'Sparplan, Depot, Umbuchung',
-  chAge: '', chIncome: '', chExpenses: '', bank: null
-};
+let settings = { birth: '', targetAge: 95, ret: 5, infl: 2.5, taxInc: 30, taxCap: 30, chAge: '', chCf: '', chPension: '', chRent: '' };
+let entries = [];
+let draft = { date: today(), assets: '', cf: '', pension: '', rent: '' };
 
+function readJSON(key, fallback) {
+  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch (e) { return fallback; }
+}
+function writeJSON(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+}
 function load() {
-  try { const raw = localStorage.getItem(STATE_KEY); if (raw) state = Object.assign(state, JSON.parse(raw)); } catch (e) {}
+  const s = readJSON(SETTINGS_KEY, null);
+  if (s) Object.assign(settings, s);
+  else {
+    // Grundwerte aus der ersten Version übernehmen
+    const old = readJSON('reichweite_state_v1', null);
+    if (old) for (const k of ['birth', 'targetAge', 'ret', 'infl']) if (old[k] !== undefined && old[k] !== '') settings[k] = old[k];
+  }
+  entries = readJSON(ENTRIES_KEY, []);
+  const d = readJSON(DRAFT_KEY, null);
+  const last = entries[entries.length - 1];
+  if (d) Object.assign(draft, d);
+  else if (last) Object.assign(draft, { assets: last.assets, cf: last.cf, pension: last.pension, rent: last.rent });
+  if (!d || (last && d.date <= last.date)) draft.date = today();
 }
-function save() {
-  try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch (e) {}
-}
-function loadHist() {
-  try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch (e) { return []; }
-}
-function saveHist(h) {
-  try { localStorage.setItem(HIST_KEY, JSON.stringify(h)); } catch (e) {}
-}
+const saveSettings = () => writeJSON(SETTINGS_KEY, settings);
+const saveEntries = () => writeJSON(ENTRIES_KEY, entries);
+const saveDraft = () => writeJSON(DRAFT_KEY, draft);
 
-// ── Zahlen & Datum ──────────────────────────────────────
-function parseNum(s) {
-  if (s == null) return NaN;
-  s = String(s).trim().replace(/[€\s ]|EUR/g, '');
-  if (!s) return NaN;
-  let neg = false;
-  if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
-  if (s.endsWith('-')) { neg = true; s = s.slice(0, -1); }
-  const lastComma = s.lastIndexOf(','), lastDot = s.lastIndexOf('.');
-  if (lastComma > lastDot) s = s.replace(/\./g, '').replace(',', '.');           // 1.234,56
-  else if (lastDot > lastComma && lastComma >= 0) s = s.replace(/,/g, '');        // 1,234.56
-  else if (lastDot >= 0 && /^\-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, ''); // 1.234
-  const n = parseFloat(s);
-  return neg ? -n : n;
+// ── Rechenkern ──────────────────────────────────────────
+// Rente und V+V kommen brutto aufs Girokonto; die Steuer darauf zieht die App pauschal ab.
+function effectiveCf(cf, pension, rent) {
+  return num(cf) - num(settings.taxInc) / 100 * (num(pension) + num(rent));
 }
-function parseDate(s) {
-  s = String(s || '').trim();
-  let m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
-  if (m) { let y = +m[3]; if (y < 100) y += 2000; return new Date(y, +m[2] - 1, +m[1]); }
-  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
-  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (m) return new Date(+m[3], +m[1] - 1, +m[2]);
-  return null;
-}
-
-// ── CSV ─────────────────────────────────────────────────
-function parseCSV(text) {
-  text = text.replace(/^﻿/, '');
-  const firstLines = text.split(/\r?\n/).slice(0, 30).join('\n');
-  const counts = { ';': 0, ',': 0, '\t': 0 };
-  for (const c of firstLines) if (c in counts) counts[c]++;
-  const delim = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
-  const rows = []; let row = [], cell = '', q = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (q) {
-      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
-      else cell += c;
-    } else if (c === '"') q = true;
-    else if (c === delim) { row.push(cell); cell = ''; }
-    else if (c === '\n' || c === '\r') {
-      if (c === '\r' && text[i + 1] === '\n') i++;
-      row.push(cell); rows.push(row); row = []; cell = '';
-    } else cell += c;
-  }
-  if (cell || row.length) { row.push(cell); rows.push(row); }
-  return rows.filter(r => r.some(c => c.trim() !== ''));
-}
-// Findet die Kopfzeile (Banken schreiben oft Metadaten davor) und die passenden Spalten.
-function findHeader(rows, patterns) {
-  for (let i = 0; i < Math.min(rows.length, 40); i++) {
-    const h = rows[i].map(c => c.trim().toLowerCase());
-    const idx = {};
-    for (const [key, re] of Object.entries(patterns)) idx[key] = h.findIndex(c => re.test(c));
-    if (Object.values(idx).filter(v => v >= 0).length >= 2) return { i, idx, header: h };
-  }
-  return null;
-}
-function readFile(input, cb) {
-  const f = input.files[0]; if (!f) return;
-  const r = new FileReader();
-  r.onload = () => {
-    let text = r.result;
-    // Viele Banken exportieren in Windows-1252 statt UTF-8
-    if (text.includes('�')) {
-      const r2 = new FileReader();
-      r2.onload = () => cb(r2.result, f.name);
-      r2.readAsText(f, 'windows-1252');
-    } else cb(text, f.name);
-  };
-  r.readAsText(f, 'utf-8');
-  input.value = '';
-}
-
-// ── Vermögen / Parqet ───────────────────────────────────
-function importAssets(text) {
-  const rows = parseCSV(text);
-  const msg = $('assetMsg');
-  // Variante A: Positions-/Holdings-Export mit aktuellem Wert je Position
-  const hA = findHeader(rows, {
-    name: /^(name|holding ?name|holdingname|bezeichnung|wertpapier|titel|asset|position)$|name/,
-    value: /marktwert|market ?value|current ?value|aktueller wert|^wert|^value|positionswert|gesamtwert|bestandswert/
-  });
-  // Variante B: Parqet-Aktivitäten-Export (type; amount; holdingname …)
-  const hB = findHeader(rows, { type: /^type$|^typ$|^art$/, amount: /^amount$|^betrag$/, name: /holdingname|^name$|^holding$/ });
-
-  const list = [];
-  let kind = '';
-  if (hA && hA.idx.name >= 0 && hA.idx.value >= 0 && !(hB && hB.idx.type >= 0)) {
-    for (const r of rows.slice(hA.i + 1)) {
-      const v = parseNum(r[hA.idx.value]);
-      const n = (r[hA.idx.name] || '').trim();
-      if (n && isFinite(v) && v !== 0) list.push({ name: n, value: Math.round(v * 100) / 100 });
-    }
-    kind = 'Positionen mit aktuellem Wert';
-  } else if (hB && hB.idx.type >= 0 && hB.idx.amount >= 0) {
-    const nick = hB.header.findIndex(c => c === 'holdingnickname');
-    const nameIdx = nick >= 0 ? nick : hB.idx.name;
-    const agg = {};
-    for (const r of rows.slice(hB.i + 1)) {
-      const t = (r[hB.idx.type] || '').trim().toLowerCase();
-      const a = Math.abs(parseNum(r[hB.idx.amount]));
-      if (!isFinite(a)) continue;
-      const n = ((nameIdx >= 0 && r[nameIdx]) || (r[hB.idx.name] || '') || 'Position').trim() || 'Position';
-      let s = 0;
-      if (/buy|kauf|transferin|einbuchung|deposit|einzahlung/.test(t) && !/verkauf/.test(t)) s = 1;
-      else if (/sell|verkauf|transferout|ausbuchung|withdrawal|auszahlung/.test(t)) s = -1;
-      if (!s) continue;
-      agg[n] = (agg[n] || 0) + s * a;
-    }
-    for (const [name, value] of Object.entries(agg)) if (value > 0.5) list.push({ name, value: Math.round(value) });
-    kind = 'Aktivitäten (Einstandswerte – bitte auf aktuelle Kurswerte prüfen)';
-  }
-
-  if (!list.length) {
-    msg.innerHTML = '<div class="msg err">In der Datei wurden keine Positionen mit Name und Wert erkannt. Bitte Werte von Hand eintragen.</div>';
-    return;
-  }
-  state.assets = list;
-  msg.innerHTML = `<div class="msg ${kind.startsWith('Akt') ? 'warn' : 'ok'}">${list.length} Positionen importiert – ${esc(kind)}.</div>`;
-  renderAssets(); update();
-}
-function renderAssets() {
-  const tb = $('assetRows');
-  tb.innerHTML = state.assets.map((a, i) => `<tr>
-    <td><input data-i="${i}" data-k="name" value="${esc(a.name)}" placeholder="z. B. ETF-Depot"></td>
-    <td class="v"><input data-i="${i}" data-k="value" type="number" step="100" inputmode="decimal" value="${a.value}" placeholder="Wert €"></td>
-    <td class="x"><button class="del" data-del="${i}" aria-label="Entfernen">×</button></td></tr>`).join('');
-  $('assetSum').textContent = eur(totalAssets());
-}
-function totalAssets() { return state.assets.reduce((s, a) => s + (parseFloat(a.value) || 0), 0); }
-
-// ── Girokonto ───────────────────────────────────────────
-function importBank(text) {
-  const rows = parseCSV(text);
-  const h = findHeader(rows, {
-    date: /buchungstag|buchungsdatum|^datum|date|valuta|wertstellung/,
-    amount: /^betrag|betrag \(eur\)|betrag in eur|^amount|umsatz|^betrag$/,
-    debit: /^soll|belastung|ausgang|lastschrift/,
-    credit: /^haben|gutschrift|eingang/
-  });
-  if (!h || h.idx.date < 0 || (h.idx.amount < 0 && h.idx.debit < 0)) {
-    $('bankMsg').innerHTML = '<div class="msg err">Datum- oder Betragsspalte nicht gefunden. Bitte Einnahmen und Ausgaben von Hand eintragen.</div>';
-    return;
-  }
-  // Bei manchen Banken steht Datum zweifach (Buchung & Valuta) – nimm die erste passende.
-  const tx = [];
-  for (const r of rows.slice(h.i + 1)) {
-    const d = parseDate(r[h.idx.date]);
-    if (!d) continue;
-    let a;
-    if (h.idx.amount >= 0) a = parseNum(r[h.idx.amount]);
-    else a = (parseNum(r[h.idx.credit]) || 0) - Math.abs(parseNum(r[h.idx.debit]) || 0);
-    if (!isFinite(a) || a === 0) continue;
-    const skip = new Set([h.idx.date, h.idx.amount, h.idx.debit, h.idx.credit]);
-    const txt = r.filter((c, j) => !skip.has(j)).join(' ').replace(/\s+/g, ' ').trim();
-    tx.push({ d: d.toISOString().slice(0, 10), a: Math.round(a * 100) / 100, t: txt.slice(0, 160) });
-  }
-  if (!tx.length) {
-    $('bankMsg').innerHTML = '<div class="msg err">Keine Buchungen erkannt.</div>';
-    return;
-  }
-  state.bank = { file: tx.length + ' Buchungen', tx };
-  applyBank(true);
-}
-function bankStats() {
-  if (!state.bank || !state.bank.tx.length) return null;
-  const words = state.exclude.split(',').map(w => w.trim().toLowerCase()).filter(Boolean);
-  const byMonth = {};
-  let excluded = 0;
-  for (const t of state.bank.tx) {
-    if (words.some(w => t.t.toLowerCase().includes(w))) { excluded++; continue; }
-    const k = t.d.slice(0, 7);
-    byMonth[k] = byMonth[k] || { in: 0, out: 0 };
-    if (t.a > 0) byMonth[k].in += t.a; else byMonth[k].out -= t.a;
-  }
-  const keys = Object.keys(byMonth).sort();
-  const all = state.bank.tx.map(t => t.d).sort();
-  // Angebrochene Rand-Monate verfälschen den Schnitt: nur volle Monate nehmen, wenn genug da sind.
-  let used = keys;
-  if (keys.length >= 4) {
-    const first = all[0], last = all[all.length - 1];
-    used = keys.filter(k => {
-      if (k === first.slice(0, 7) && +first.slice(8) > 5) return false;
-      if (k === last.slice(0, 7)) {
-        const [y, m] = k.split('-').map(Number);
-        const dim = new Date(y, m, 0).getDate();
-        if (+last.slice(8) < dim - 5) return false;
-      }
-      return true;
-    });
-  }
-  const n = used.length || 1;
-  const inc = used.reduce((s, k) => s + byMonth[k].in, 0) / n;
-  const out = used.reduce((s, k) => s + byMonth[k].out, 0) / n;
-  return { byMonth, keys, used, inc, out, excluded, total: state.bank.tx.length };
-}
-function applyBank(setFields) {
-  const st = bankStats();
-  if (!st) { $('bankMsg').innerHTML = ''; $('bankDetail').innerHTML = ''; return; }
-  if (setFields) {
-    state.income = Math.round(st.inc);
-    state.expenses = Math.round(st.out);
-    $('income').value = state.income;
-    $('expenses').value = state.expenses;
-  }
-  const partial = st.keys.length - st.used.length;
-  $('bankMsg').innerHTML = `<div class="msg ok">${st.total} Buchungen, Durchschnitt über ${st.used.length} Monat${st.used.length === 1 ? '' : 'e'}${partial ? ` (${partial} angebrochene${partial === 1 ? 'r' : ''} Monat${partial === 1 ? '' : 'e'} ignoriert)` : ''}${st.excluded ? `, ${st.excluded} Buchungen per Stichwort ausgeschlossen` : ''}.</div>`
-    + (st.used.length < 3 ? '<div class="msg warn">Weniger als 3 volle Monate – Jahreszahlungen (Versicherung, Urlaub …) sind so kaum abgebildet.</div>' : '');
-  $('bankDetail').innerHTML = `<details><summary>Monate im Detail</summary><table class="months"><thead><tr><th>Monat</th><th>Ein</th><th>Aus</th><th>Δ</th></tr></thead><tbody>`
-    + st.keys.map(k => {
-      const m = st.byMonth[k], [y, mo] = k.split('-');
-      const off = !st.used.includes(k);
-      return `<tr style="${off ? 'opacity:.45' : ''}"><td>${MONTHS[+mo - 1]} ${y}</td><td>${eur(m.in)}</td><td>${eur(m.out)}</td><td>${eur(m.in - m.out)}</td></tr>`;
-    }).join('') + '</tbody></table></details>';
-}
-
-// ── Rechnung ────────────────────────────────────────────
-function ageNow() {
-  if (!state.birth) return null;
-  const b = new Date(state.birth), n = new Date();
-  return (n - b) / (365.2425 * 864e5);
-}
+function netReturn() { return num(settings.ret) / 100 * (1 - num(settings.taxCap) / 100); }
 function realMonthlyRate() {
-  const r = (parseFloat(state.ret) || 0) / 100, i = (parseFloat(state.infl) || 0) / 100;
-  return Math.pow((1 + r) / (1 + i), 1 / 12) - 1;
+  return Math.pow((1 + netReturn()) / (1 + num(settings.infl) / 100), 1 / 12) - 1;
 }
-function cashflowAt(age) {
-  let inc = parseFloat(state.income) || 0, out = parseFloat(state.expenses) || 0;
-  const ch = parseFloat(state.chAge);
-  if (isFinite(ch) && age >= ch) {
-    if (state.chIncome !== '' && isFinite(parseFloat(state.chIncome))) inc = parseFloat(state.chIncome);
-    if (state.chExpenses !== '' && isFinite(parseFloat(state.chExpenses))) out = parseFloat(state.chExpenses);
-  }
-  return inc - out;
+function nominalMonthlyRate() { return Math.pow(1 + netReturn(), 1 / 12) - 1; }
+
+function ageAt(iso) {
+  if (!settings.birth) return null;
+  return (new Date(iso) - new Date(settings.birth)) / (365.2425 * 864e5);
 }
-// Monatliche Simulation: Kapital wächst mit realer Rendite, jeder Monat bringt den Cashflow dazu.
-function simulate(capital, age0, extraMonthly = 0) {
+function cfAtAge(age, base) {
+  const ch = parseFloat(settings.chAge);
+  if (!isFinite(ch) || age < ch) return base.eff;
+  const cf = has(settings.chCf) ? settings.chCf : base.cf;
+  const pension = has(settings.chPension) ? settings.chPension : base.pension;
+  const rent = has(settings.chRent) ? settings.chRent : base.rent;
+  return effectiveCf(cf, pension, rent);
+}
+// Monatliche Simulation: Kapital wächst mit realer Netto-Rendite, jeder Monat bringt den Cashflow dazu.
+function simulate(capital, age0, base, extra = 0, untilAge = MAX_AGE, stopAtZero = true) {
   const rm = realMonthlyRate();
   const pts = [{ age: age0, c: capital }];
   let c = capital, runOut = null;
-  const months = Math.ceil((MAX_AGE - age0) * 12);
+  const months = Math.round((untilAge - age0) * 12);
   for (let m = 1; m <= months; m++) {
     const age = age0 + m / 12;
-    c = c * (1 + (c > 0 ? rm : 0)) + cashflowAt(age) + extraMonthly;
+    c = c * (1 + (c > 0 ? rm : 0)) + cfAtAge(age, base) + extra;
     pts.push({ age, c });
-    if (c < 0) { runOut = age; break; }
+    if (c < 0 && runOut == null) { runOut = age; if (stopAtZero) break; }
   }
   return { pts, runOut, end: c };
 }
-// Kleinster zusätzlicher Monats-Cashflow, bei dem das Kapital mit dem Zielalter gerade bei 0 ankommt.
-function sustainableAdjustment(capital, age0, target) {
+// Zusätzlicher Monats-Cashflow, bei dem das Kapital mit dem Zielalter gerade bei 0 ankommt.
+function breakEvenExtra(capital, age0, base, target) {
   if (target <= age0) return null;
-  const endAt = extra => {
-    const rm = realMonthlyRate();
-    let c = capital;
-    const months = Math.round((target - age0) * 12);
-    for (let m = 1; m <= months; m++) {
-      c = c * (1 + rm) + cashflowAt(age0 + m / 12) + extra;
-    }
-    return c;
-  };
   let lo = -1e6, hi = 1e6;
-  for (let k = 0; k < 80; k++) {
+  for (let k = 0; k < 60; k++) {
     const mid = (lo + hi) / 2;
-    if (endAt(mid) < 0) lo = mid; else hi = mid;
+    if (simulate(capital, age0, base, mid, target, false).end < 0) lo = mid; else hi = mid;
   }
   return hi;
 }
+// Was hätte die Rechnung vom vorigen Stichtag für heute erwartet? (nominal, ohne Inflation)
+function expectedFrom(prev, dateIso) {
+  const months = (new Date(dateIso) - new Date(prev.date)) / (DAYS_PER_MONTH * 864e5);
+  if (months <= 0) return null;
+  const rm = nominalMonthlyRate();
+  const eff = effectiveCf(prev.cf, prev.pension, prev.rent);
+  const growth = Math.pow(1 + rm, months);
+  // Cashflow fließt monatlich zu (Rentenendwert)
+  const annuity = rm ? (growth - 1) / rm : months;
+  return prev.assets * growth + eff * annuity;
+}
+
 function fmtAge(a) {
   const y = Math.floor(a), m = Math.floor((a - y) * 12);
-  return m ? `${y} Jahre ${m} Mon.` : `${y} Jahre`;
+  return m ? `${y} J. ${m} Mon.` : `${y} Jahre`;
 }
 function dateAtAge(a) {
-  const b = new Date(state.birth);
-  const d = new Date(b.getTime() + a * 365.2425 * 864e5);
+  const d = new Date(new Date(settings.birth).getTime() + a * 365.2425 * 864e5);
   return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
+function prevEntryBefore(dateIso) {
+  return entries.filter(e => e.date < dateIso).pop() || null;
+}
 
+// ── Anzeige ─────────────────────────────────────────────
 let lastSim = null;
 function update() {
-  const inc = parseFloat(state.income) || 0, out = parseFloat(state.expenses) || 0, delta = inc - out;
-  $('kIn').textContent = eur(inc);
-  $('kOut').textContent = eur(out);
-  $('kDelta').textContent = (delta > 0 ? '+' : '') + eur(delta);
-  $('kDelta').style.color = delta < 0 ? 'var(--red)' : 'var(--green)';
-  $('assetSum').textContent = eur(totalAssets());
+  const base = { cf: num(draft.cf), pension: num(draft.pension), rent: num(draft.rent) };
+  base.eff = effectiveCf(base.cf, base.pension, base.rent);
+  const tax = base.cf - base.eff;
+  $('calc').innerHTML = `
+    <div><span>Cashflow Girokonto</span><span>${signed(base.cf)}</span></div>
+    <div><span>− Steuer ${num(settings.taxInc)} % auf ${eur(base.pension + base.rent)}</span><span>${signed(-tax)}</span></div>
+    <div class="tot"><span>Wirksamer Cashflow / Monat</span><span style="color:${base.eff < 0 ? 'var(--red)' : 'var(--green)'}">${signed(base.eff)}</span></div>`;
+
+  // Soll/Ist gegenüber dem vorigen Stichtag
+  const prev = prevEntryBefore(draft.date);
+  const exp = prev && has(draft.assets) ? expectedFrom(prev, draft.date) : null;
+  if (exp != null) {
+    const diff = num(draft.assets) - exp;
+    const cls = diff >= 0 ? 'ok' : (diff > -0.02 * exp ? 'warn' : 'err');
+    $('sollIst').innerHTML = `<div class="msg ${cls}">Seit ${fmtDate(prev.date)} erwartet: <strong>${eur(exp)}</strong> · tatsächlich: <strong>${eur(num(draft.assets))}</strong> · Abweichung <strong>${signed(diff)}</strong></div>`;
+  } else $('sollIst').innerHTML = '';
 
   const res = $('result');
-  const age = ageNow();
-  const cap = totalAssets();
-  if (age == null) {
-    res.innerHTML = '<div class="sub">Bitte zuerst das Geburtsdatum eintragen.</div>';
+  const age = ageAt(draft.date);
+  if (age == null || !has(draft.assets)) {
+    res.innerHTML = `<div class="sub">${age == null ? 'Bitte unten unter <strong>Grundwerte</strong> das Geburtsdatum eintragen.' : 'Bitte das Vermögen zum Stichtag eintragen.'}</div>`;
     lastSim = null; drawChart(); return;
   }
-  const target = parseFloat(state.targetAge) || 95;
-  const sim = simulate(cap, age);
+  const cap = num(draft.assets);
+  const target = num(settings.targetAge) || 95;
+  const sim = simulate(cap, age, base);
   lastSim = { sim, age, target };
-  const adj = sustainableAdjustment(cap, age, target);
 
   let html;
   if (sim.runOut != null) {
     const ok = sim.runOut >= target;
     const cls = ok ? 'ok' : (sim.runOut >= target - 10 ? 'warn' : 'err');
-    const years = sim.runOut - age;
-    html = `<span class="badge ${cls}">${ok ? 'Reicht bis zum Zielalter' : 'Reicht nicht bis ' + target}</span>
+    html = `<span class="badge ${cls}">${ok ? 'Reicht bis zum Zielalter ' + target : 'Reicht nicht bis ' + target}</span>
       <div class="big">bis Alter ${Math.floor(sim.runOut)}</div>
-      <div class="sub">Dein Kapital reicht noch etwa <strong>${fmtAge(years)}</strong> –<br>voraussichtlich bis <strong>${dateAtAge(sim.runOut)}</strong> (${fmtAge(sim.runOut)} alt).</div>`;
+      <div class="sub">Dein Kapital reicht noch etwa <strong>${fmtAge(sim.runOut - age)}</strong> –<br>voraussichtlich bis <strong>${dateAtAge(sim.runOut)}</strong>.</div>`;
   } else {
     const atTarget = sim.pts.find(p => p.age >= target) || sim.pts[sim.pts.length - 1];
     html = `<span class="badge ok">Reicht lebenslang</span>
       <div class="big">über ${MAX_AGE} hinaus</div>
       <div class="sub">Mit ${target} hättest du noch etwa <strong>${eur(atTarget.c)}</strong> (heutige Kaufkraft).</div>`;
   }
-  if (adj != null && isFinite(adj)) {
-    // adj = zusätzlicher Monats-Cashflow, der nötig ist, damit das Kapital genau bis zum Zielalter reicht
-    const a = -Math.round(adj / 10) * 10;
-    html += `<div class="extra">`;
-    if (a >= 0) html += `Um bis <strong>${target}</strong> auszukommen, könntest du monatlich bis zu <strong>${eur(a)}</strong> mehr ausgeben als heute.`;
-    else html += `Um bis <strong>${target}</strong> auszukommen, müsstest du monatlich rund <strong>${eur(-a)}</strong> weniger ausgeben (oder mehr einnehmen).`;
-    if (delta < 0 && cap > 0) html += `<br>Aktuelle Entnahmerate: <strong>${(-delta * 12 / cap * 100).toLocaleString('de-DE', { maximumFractionDigits: 1 })} %</strong> des Vermögens pro Jahr.`;
-    html += `</div>`;
+  const be = breakEvenExtra(cap, age, base, target);
+  html += `<div class="extra">`;
+  if (be != null) {
+    const a = -Math.round(be / 10) * 10;
+    html += a >= 0
+      ? `Spielraum bis ${target}: du könntest monatlich bis zu <strong>${eur(a)}</strong> mehr ausgeben.<br>`
+      : `Um bis ${target} auszukommen, müsstest du monatlich rund <strong>${eur(-a)}</strong> einsparen.<br>`;
   }
+  const rn = netReturn() * 100, rr = ((1 + netReturn()) / (1 + num(settings.infl) / 100) - 1) * 100;
+  const pct = v => v.toLocaleString('de-DE', { maximumFractionDigits: 1 }) + ' %';
+  html += `Rendite nach Steuern ${pct(rn)}, nach Inflation ${pct(rr)} p.a.`;
+  if (base.eff < 0 && cap > 0) html += `<br>Entnahmerate: <strong>${pct(-base.eff * 12 / cap * 100)}</strong> des Vermögens pro Jahr.`;
+  html += `</div>`;
   res.innerHTML = html;
   drawChart();
 }
@@ -561,7 +368,7 @@ function niceStep(range, n) {
 }
 function drawChart() {
   const svg = $('chart');
-  if (!lastSim) { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" font-size="13" fill="var(--ink-soft)">Noch keine Daten</text>`; return; }
+  if (!lastSim) { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" font-size="12" fill="var(--ink-soft)">Noch keine Daten</text>`; return; }
   const { sim, age, target } = lastSim;
   const pts = sim.pts.filter((p, i) => i % 3 === 0 || i === sim.pts.length - 1);
   const x0 = age, x1 = Math.max(target + 2, sim.runOut != null ? Math.min(MAX_AGE, sim.runOut + 3) : Math.min(MAX_AGE, target + 5));
@@ -577,24 +384,19 @@ function drawChart() {
     g += `<line x1="${P.l}" x2="${W - P.r}" y1="${sy(v)}" y2="${sy(v)}" stroke="${v === 0 ? 'var(--ink-soft)' : 'var(--grid)'}" stroke-width="1"/>`;
     g += `<text x="${P.l - 6}" y="${sy(v) + 3}" text-anchor="end">${eurShort(v)}</text>`;
   }
-  const xs = niceStep(x1 - x0, 5) < 5 ? 5 : niceStep(x1 - x0, 5);
-  for (let a = Math.ceil(x0 / xs) * xs; a <= x1; a += xs) {
-    g += `<text x="${sx(a)}" y="${H - 8}" text-anchor="middle">${a}</text>`;
-  }
+  const xs = Math.max(5, niceStep(x1 - x0, 5));
+  for (let a = Math.ceil(x0 / xs) * xs; a <= x1; a += xs) g += `<text x="${sx(a)}" y="${H - 8}" text-anchor="middle">${a}</text>`;
   g += '</g>';
-  // Zielalter
   if (target <= x1) {
     g += `<line x1="${sx(target)}" x2="${sx(target)}" y1="${P.t}" y2="${H - P.b}" stroke="var(--ink-soft)" stroke-dasharray="3 3"/>`;
     g += `<text x="${sx(target) - 4}" y="${P.t + 10}" text-anchor="end" font-size="10" fill="var(--ink-soft)">Zielalter ${target}</text>`;
   }
   const d = shown.map((p, i) => `${i ? 'L' : 'M'}${sx(p.age).toFixed(1)},${sy(p.c).toFixed(1)}`).join('');
-  const area = d + `L${sx(shown[shown.length - 1].age).toFixed(1)},${sy(Math.max(0, yMin))}L${sx(shown[0].age).toFixed(1)},${sy(Math.max(0, yMin))}Z`;
-  g += `<path d="${area}" fill="var(--accent)" opacity="0.10"/>`;
+  const zero = sy(Math.max(0, yMin));
+  g += `<path d="${d}L${sx(shown[shown.length - 1].age).toFixed(1)},${zero}L${sx(shown[0].age).toFixed(1)},${zero}Z" fill="var(--accent)" opacity="0.10"/>`;
   g += `<path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>`;
-  if (sim.runOut != null && sim.runOut <= x1) {
-    g += `<circle cx="${sx(sim.runOut)}" cy="${sy(0)}" r="5" fill="var(--red)" stroke="var(--card)" stroke-width="2"/>`;
-  }
-  g += `<line id="cross" y1="${P.t}" y2="${H - P.b}" stroke="var(--ink)" stroke-width="1" opacity="0" />`;
+  if (sim.runOut != null && sim.runOut <= x1) g += `<circle cx="${sx(sim.runOut)}" cy="${sy(0)}" r="5" fill="var(--red)" stroke="var(--card)" stroke-width="2"/>`;
+  g += `<line id="cross" y1="${P.t}" y2="${H - P.b}" stroke="var(--ink)" stroke-width="1" opacity="0"/>`;
   g += `<circle id="dot" r="5" fill="var(--accent)" stroke="var(--card)" stroke-width="2" opacity="0"/>`;
   g += `<rect id="hit" x="${P.l}" y="0" width="${W - P.l - P.r}" height="${H}" fill="transparent"/>`;
   svg.innerHTML = g;
@@ -603,8 +405,7 @@ function drawChart() {
   const move = ev => {
     const e = ev.touches ? ev.touches[0] : ev;
     const rect = svg.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width * W;
-    const a = x0 + (x - P.l) / (W - P.l - P.r) * (x1 - x0);
+    const a = x0 + ((e.clientX - rect.left) / rect.width * W - P.l) / (W - P.l - P.r) * (x1 - x0);
     let best = shown[0];
     for (const p of shown) if (Math.abs(p.age - a) < Math.abs(best.age - a)) best = p;
     const px = sx(best.age), py = sy(best.c);
@@ -623,72 +424,93 @@ function drawChart() {
   hit.addEventListener('touchend', () => setTimeout(leave, 1500));
 }
 
-// ── Monatsverlauf ───────────────────────────────────────
-function renderHist() {
-  const h = loadHist();
-  $('histRows').innerHTML = h.length ? h.map((e, i) => `<tr>
-    <td>${MONTHS[+e.month.slice(5) - 1]} ${e.month.slice(0, 4)}</td>
-    <td>${eurShort(e.capital)}</td>
-    <td style="color:${e.delta < 0 ? 'var(--red)' : 'var(--green)'}">${e.delta > 0 ? '+' : ''}${eur(e.delta)}</td>
-    <td>${e.runOut == null ? 'lebenslang' : 'Alter ' + Math.floor(e.runOut)}</td>
-    <td><button class="del" data-hdel="${i}" aria-label="Löschen" style="border:none;background:none;color:var(--ink-soft);font-size:16px;cursor:pointer">×</button></td></tr>`).join('')
-    : '<tr><td colspan="5" style="text-align:left;color:var(--ink-soft)">Noch keine Einträge.</td></tr>';
+// ── Stichtage ───────────────────────────────────────────
+function entryRunOut(e) {
+  const age = ageAt(e.date);
+  if (age == null) return undefined;
+  const base = { cf: num(e.cf), pension: num(e.pension), rent: num(e.rent) };
+  base.eff = effectiveCf(base.cf, base.pension, base.rent);
+  return simulate(num(e.assets), age, base).runOut;
 }
-function saveSnapshot() {
-  if (!lastSim) { alert('Bitte zuerst Geburtsdatum eintragen.'); return; }
-  const month = new Date().toISOString().slice(0, 7);
-  const h = loadHist().filter(e => e.month !== month);
-  h.push({ month, capital: totalAssets(), delta: (parseFloat(state.income) || 0) - (parseFloat(state.expenses) || 0), runOut: lastSim.sim.runOut });
-  h.sort((a, b) => b.month.localeCompare(a.month));
-  saveHist(h); renderHist();
+function renderHist() {
+  // Reichweite und Soll/Ist werden mit den aktuellen Grundwerten neu gerechnet
+  const rows = entries.map((e, i) => {
+    const prev = i > 0 ? entries[i - 1] : null;
+    const exp = prev ? expectedFrom(prev, e.date) : null;
+    const diff = exp != null ? num(e.assets) - exp : null;
+    const ro = entryRunOut(e);
+    const eff = effectiveCf(e.cf, e.pension, e.rent);
+    return `<tr>
+      <td>${fmtDate(e.date)}</td>
+      <td>${eurShort(num(e.assets))}</td>
+      <td style="color:${eff < 0 ? 'var(--red)' : 'var(--green)'}">${signed(eff)}</td>
+      <td>${diff == null ? '–' : `<span style="color:${diff < 0 ? 'var(--red)' : 'var(--green)'}">${diff > 0 ? '+' : ''}${eurShort(diff)}</span>`}</td>
+      <td>${ro === undefined ? '–' : ro == null ? 'lebenslang' : 'Alter ' + Math.floor(ro)}</td>
+      <td><button class="del" data-del="${i}" aria-label="Stichtag löschen">×</button></td></tr>`;
+  }).reverse();
+  $('histRows').innerHTML = rows.length ? rows.join('') : '<tr><td colspan="6" style="text-align:left;color:var(--ink-soft)">Noch keine Stichtage gespeichert.</td></tr>';
+}
+function saveEntry() {
+  if (!draft.date || !has(draft.assets) || !has(draft.cf)) { alert('Bitte Stichtag, Vermögen und Cashflow eintragen.'); return; }
+  const e = { date: draft.date, assets: num(draft.assets), cf: num(draft.cf), pension: num(draft.pension), rent: num(draft.rent) };
+  const i = entries.findIndex(x => x.date === e.date);
+  if (i >= 0 && !confirm(`Für den ${fmtDate(e.date)} gibt es schon einen Eintrag. Überschreiben?`)) return;
+  if (i >= 0) entries[i] = e; else entries.push(e);
+  entries.sort((a, b) => a.date.localeCompare(b.date));
+  saveEntries(); renderHist();
+  $('saveEntry').textContent = 'Gespeichert ✓';
+  setTimeout(() => { $('saveEntry').textContent = 'Stichtag speichern'; }, 1500);
+}
+
+// ── Sicherung ───────────────────────────────────────────
+function exportData() {
+  const blob = new Blob([JSON.stringify({ app: 'reichweite', version: 2, settings, entries }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `reichweite-${today()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function importData(file) {
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (d.app !== 'reichweite' || !Array.isArray(d.entries)) throw new Error();
+      if (!confirm(`${d.entries.length} Stichtage und die Grundwerte laden? Die Daten auf diesem Gerät werden ersetzt.`)) return;
+      Object.assign(settings, d.settings || {});
+      entries = d.entries;
+      saveSettings(); saveEntries();
+      fillFields(); renderHist(); update();
+      $('backupMsg').innerHTML = '<div class="msg ok">Sicherung geladen.</div>';
+    } catch (e) {
+      $('backupMsg').innerHTML = '<div class="msg err">Die Datei ist keine gültige Sicherung.</div>';
+    }
+  };
+  r.readAsText(file);
 }
 
 // ── Verdrahtung ─────────────────────────────────────────
-function bindField(id, key, after) {
-  const el = $(id);
-  el.value = state[key] ?? '';
-  el.addEventListener('input', () => { state[key] = el.value; save(); if (after) after(); update(); });
+const SETTING_FIELDS = ['birth', 'targetAge', 'ret', 'infl', 'taxInc', 'taxCap', 'chAge', 'chCf', 'chPension', 'chRent'];
+const DRAFT_FIELDS = ['date', 'assets', 'cf', 'pension', 'rent'];
+function fillFields() {
+  for (const k of SETTING_FIELDS) $(k).value = settings[k] ?? '';
+  for (const k of DRAFT_FIELDS) $(k).value = draft[k] ?? '';
 }
 function init() {
   load();
-  bindField('birth', 'birth');
-  bindField('targetAge', 'targetAge');
-  bindField('ret', 'ret');
-  bindField('infl', 'infl');
-  bindField('income', 'income');
-  bindField('expenses', 'expenses');
-  bindField('chAge', 'chAge');
-  bindField('chIncome', 'chIncome');
-  bindField('chExpenses', 'chExpenses');
-  bindField('exclude', 'exclude', () => applyBank(true));
-
-  $('assetRows').addEventListener('input', e => {
-    const i = e.target.dataset.i, k = e.target.dataset.k;
-    if (i == null) return;
-    state.assets[i][k] = e.target.value;
-    save(); update();
-  });
-  $('assetRows').addEventListener('click', e => {
-    const i = e.target.dataset.del;
-    if (i == null) return;
-    state.assets.splice(+i, 1); save(); renderAssets(); update();
-  });
-  $('addAsset').onclick = () => { state.assets.push({ name: '', value: '' }); save(); renderAssets(); };
-  $('clearAssets').onclick = () => { if (confirm('Alle Positionen entfernen?')) { state.assets = []; save(); renderAssets(); update(); } };
-  $('importAssetsBtn').onclick = () => $('assetFile').click();
-  $('assetFile').onchange = e => readFile(e.target, t => { importAssets(t); save(); });
-  $('importBankBtn').onclick = () => $('bankFile').click();
-  $('bankFile').onchange = e => readFile(e.target, t => { importBank(t); save(); update(); });
-  $('saveSnap').onclick = saveSnapshot;
+  fillFields();
+  for (const k of SETTING_FIELDS) $(k).addEventListener('input', () => { settings[k] = $(k).value; saveSettings(); update(); renderHist(); });
+  for (const k of DRAFT_FIELDS) $(k).addEventListener('input', () => { draft[k] = $(k).value; saveDraft(); update(); });
+  $('saveEntry').onclick = saveEntry;
   $('histRows').addEventListener('click', e => {
-    const i = e.target.dataset.hdel;
-    if (i == null) return;
-    const h = loadHist(); h.splice(+i, 1); saveHist(h); renderHist();
+    const i = e.target.dataset.del;
+    if (i == null || !confirm(`Stichtag ${fmtDate(entries[+i].date)} löschen?`)) return;
+    entries.splice(+i, 1); saveEntries(); renderHist(); update();
   });
-
-  if (!state.assets.length) state.assets = [{ name: 'Depot (Parqet)', value: '' }, { name: 'Tagesgeld', value: '' }];
-  renderAssets();
-  applyBank(false);
+  $('exportBtn').onclick = exportData;
+  $('importBtn').onclick = () => $('importFile').click();
+  $('importFile').onchange = e => { if (e.target.files[0]) importData(e.target.files[0]); e.target.value = ''; };
   renderHist();
   update();
 }
