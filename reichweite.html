@@ -47,11 +47,18 @@ body { padding: env(safe-area-inset-top, 0) 0 40px; }
 .card h3 { font-size: 13px; font-weight: 700; margin: 6px 0 8px; }
 .hint { font-size: 12.5px; color: var(--ink-soft); line-height: 1.45; margin-bottom: 12px; }
 
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
 .full { grid-column: 1 / -1; }
-label.f { display: block; font-size: 12px; font-weight: 600; color: var(--ink-soft); margin-bottom: 10px; }
-label.f small { font-weight: 400; }
-label.f input { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--field-bg); font-size: 15px; color: var(--ink); font-family: inherit; }
+label.f { display: flex; flex-direction: column; min-width: 0; font-size: 12px; font-weight: 600; color: var(--ink-soft); margin-bottom: 10px; }
+label.f input { display: block; width: 100%; min-width: 0; height: 44px; margin-top: auto; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--field-bg); font-size: 16px; color: var(--ink); font-family: inherit; -webkit-appearance: none; appearance: none; }
+label.f .lbl { display: block; margin-bottom: 4px; }
+/* iOS gibt Datumsfeldern eine Mindestbreite und zentrierten Text – beides zurücksetzen */
+label.f input[type=date] { text-align: left; line-height: 44px; }
+label.f input[type=date]::-webkit-date-and-time-value { text-align: left; }
+.field-note { font-size: 11.5px; color: var(--ink-soft); line-height: 1.4; margin: -4px 0 10px; }
+.signed { display: flex; gap: 6px; margin-top: auto; }
+.signed input { flex: 1; }
+.signed .pm { flex: 0 0 44px; height: 44px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); font-size: 18px; font-weight: 700; color: var(--ink); cursor: pointer; font-family: inherit; }
 input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
 
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; border-radius: var(--radius-pill); border: 1px solid var(--border); background: var(--card); color: var(--ink); font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
@@ -87,8 +94,8 @@ details summary { font-size: 13px; font-weight: 600; color: var(--accent-dark); 
 .axis text { font-size: 10px; fill: var(--ink-soft); }
 
 .tbl-wrap { overflow-x: auto; }
-.hist { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
-.hist td, .hist th { padding: 6px 4px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+.hist { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.hist td, .hist th { padding: 6px 3px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
 .hist td:first-child, .hist th:first-child { text-align: left; }
 .hist th { font-size: 11px; color: var(--ink-soft); font-weight: 600; }
 .hist .del { border: none; background: none; color: var(--ink-soft); font-size: 16px; cursor: pointer; }
@@ -111,14 +118,15 @@ details summary { font-size: 13px; font-weight: 600; color: var(--accent-dark); 
     <h2><span class="n">1</span>Stichtag erfassen</h2>
     <p class="hint">Einmal im Monat eintragen. Die Werte vom letzten Stichtag sind vorausgefüllt – nur ändern, was sich geändert hat.</p>
     <div class="grid2">
-      <label class="f">Stichtag<input type="date" id="date"></label>
-      <label class="f">Vermögen gesamt (€)<input type="number" id="assets" step="1000" inputmode="decimal" placeholder="Depot + Konten"></label>
-      <label class="f full">Cashflow Girokonto / Monat (€) <small>– Überschuss (+) oder Fehlbetrag (−), ohne Sparpläne und ohne Steuervorauszahlungen</small><input type="number" id="cf" step="50" inputmode="decimal" placeholder="z. B. -1500"></label>
+      <label class="f"><span class="lbl">Stichtag</span><input type="date" id="date"></label>
+      <label class="f"><span class="lbl">Vermögen gesamt (€)</span><input type="text" id="assets" inputmode="decimal" placeholder="Depot + Konten"></label>
+      <label class="f full"><span class="lbl">Cashflow Girokonto / Monat (€)</span><span class="signed"><button type="button" class="pm" data-sign="cf" aria-label="Vorzeichen wechseln">±</button><input type="text" id="cf" inputmode="decimal" placeholder="z. B. −1.500"></span></label>
+      <p class="field-note full">Überschuss positiv, Fehlbetrag negativ (± tippen). Ohne Sparpläne und ohne Steuervorauszahlungen.</p>
     </div>
     <h3>Darin enthalten: steuerpflichtige Einnahmen (brutto)</h3>
     <div class="grid2">
-      <label class="f">Rente / Monat (€)<input type="number" id="pension" step="10" inputmode="decimal" placeholder="0"></label>
-      <label class="f">Vermietung &amp; Verpachtung / Monat (€)<input type="number" id="rent" step="10" inputmode="decimal" placeholder="0"></label>
+      <label class="f"><span class="lbl">Rente / Monat (€)</span><input type="text" id="pension" inputmode="decimal" placeholder="0"></label>
+      <label class="f"><span class="lbl">Vermietung / Monat (€)</span><input type="text" id="rent" inputmode="decimal" placeholder="0"></label>
     </div>
     <div class="calc" id="calc"></div>
     <div id="sollIst"></div>
@@ -147,21 +155,21 @@ details summary { font-size: 13px; font-weight: 600; color: var(--accent-dark); 
     <h2><span class="n">2</span>Grundwerte &amp; Steuern</h2>
     <p class="hint">Nur einmal einstellen. Gerechnet wird in heutiger Kaufkraft: Die Rendite wird erst versteuert, dann um die Inflation bereinigt.</p>
     <div class="grid2">
-      <label class="f">Geburtsdatum<input type="date" id="birth"></label>
-      <label class="f">Planen bis Alter<input type="number" id="targetAge" min="50" max="110" step="1" inputmode="numeric"></label>
-      <label class="f">Rendite Depot p.a. (%)<input type="number" id="ret" step="0.1" inputmode="decimal"></label>
-      <label class="f">Inflation p.a. (%)<input type="number" id="infl" step="0.1" inputmode="decimal"></label>
-      <label class="f">Steuer Rente &amp; V+V (%)<input type="number" id="taxInc" step="1" inputmode="decimal"></label>
-      <label class="f">Steuer Kapitalerträge (%)<input type="number" id="taxCap" step="1" inputmode="decimal"></label>
+      <label class="f"><span class="lbl">Geburtsdatum</span><input type="date" id="birth"></label>
+      <label class="f"><span class="lbl">Planen bis Alter</span><input type="text" id="targetAge" inputmode="numeric"></label>
+      <label class="f"><span class="lbl">Rendite Depot p.a. (%)</span><input type="text" id="ret" inputmode="decimal"></label>
+      <label class="f"><span class="lbl">Inflation p.a. (%)</span><input type="text" id="infl" inputmode="decimal"></label>
+      <label class="f"><span class="lbl">Steuer Rente &amp; V+V (%)</span><input type="text" id="taxInc" inputmode="decimal"></label>
+      <label class="f"><span class="lbl">Steuer Kapitalerträge (%)</span><input type="text" id="taxCap" inputmode="decimal"></label>
     </div>
     <details>
       <summary>Spätere Änderung, z. B. Rentenbeginn oder Verkauf einer Immobilie</summary>
       <p class="hint" style="margin-top:8px">Ab diesem Alter gelten neue Monatswerte (in heutiger Kaufkraft). Leere Felder = keine Änderung.</p>
       <div class="grid2">
-        <label class="f">Ab Alter<input type="number" id="chAge" min="18" max="110" inputmode="numeric"></label>
-        <label class="f">Cashflow Girokonto dann (€)<input type="number" id="chCf" step="50" inputmode="decimal"></label>
-        <label class="f">Rente dann (€)<input type="number" id="chPension" step="10" inputmode="decimal"></label>
-        <label class="f">V+V dann (€)<input type="number" id="chRent" step="10" inputmode="decimal"></label>
+        <label class="f"><span class="lbl">Ab Alter</span><input type="text" id="chAge" inputmode="numeric"></label>
+        <label class="f"><span class="lbl">Cashflow dann (€)</span><span class="signed"><button type="button" class="pm" data-sign="chCf" aria-label="Vorzeichen wechseln">±</button><input type="text" id="chCf" inputmode="decimal"></span></label>
+        <label class="f"><span class="lbl">Rente dann (€)</span><input type="text" id="chPension" inputmode="decimal"></label>
+        <label class="f"><span class="lbl">V+V dann (€)</span><input type="text" id="chRent" inputmode="decimal"></label>
       </div>
     </details>
   </div>
@@ -188,8 +196,19 @@ const MAX_AGE = 110;
 const DAYS_PER_MONTH = 365.2425 / 12;
 
 const $ = id => document.getElementById(id);
-const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
-const has = v => v !== '' && v != null && isFinite(parseFloat(v));
+function parseNum(v) {
+  if (v == null) return NaN;
+  if (typeof v === 'number') return v;
+  let t = String(v).trim().replace(/[\s€%\u00a0]/g, '').replace(/[−–]/g, '-');
+  if (!t) return NaN;
+  const lastComma = t.lastIndexOf(','), lastDot = t.lastIndexOf('.');
+  if (lastComma > lastDot) t = t.replace(/\./g, '').replace(',', '.');        // 1.500,50
+  else if (lastComma >= 0) t = t.replace(/,/g, '');                           // 1,500.50
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');         // 1.500
+  return /^-?\d*\.?\d+$/.test(t) ? parseFloat(t) : NaN;
+}
+const num = v => { const n = parseNum(v); return isFinite(n) ? n : 0; };
+const has = v => isFinite(parseNum(v));
 const eur = n => (isFinite(n) ? n : 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 const signed = n => (n > 0 ? '+' : '') + eur(n);
 const eurShort = n => Math.abs(n) >= 1e6 ? (n / 1e6).toLocaleString('de-DE', { maximumFractionDigits: 1 }) + ' Mio €'
@@ -243,7 +262,7 @@ function ageAt(iso) {
   return (new Date(iso) - new Date(settings.birth)) / (365.2425 * 864e5);
 }
 function cfAtAge(age, base) {
-  const ch = parseFloat(settings.chAge);
+  const ch = parseNum(settings.chAge);
   if (!isFinite(ch) || age < ch) return base.eff;
   const cf = has(settings.chCf) ? settings.chCf : base.cf;
   const pension = has(settings.chPension) ? settings.chPension : base.pension;
@@ -502,6 +521,12 @@ function init() {
   fillFields();
   for (const k of SETTING_FIELDS) $(k).addEventListener('input', () => { settings[k] = $(k).value; saveSettings(); update(); renderHist(); });
   for (const k of DRAFT_FIELDS) $(k).addEventListener('input', () => { draft[k] = $(k).value; saveDraft(); update(); });
+  document.querySelectorAll('[data-sign]').forEach(b => b.addEventListener('click', () => {
+    const el = $(b.dataset.sign), v = el.value.trim();
+    el.value = /^[-−]/.test(v) ? v.replace(/^[-−]\s*/, '') : '-' + v;
+    el.dispatchEvent(new Event('input'));
+    el.focus();
+  }));
   $('saveEntry').onclick = saveEntry;
   $('histRows').addEventListener('click', e => {
     const i = e.target.dataset.del;
