@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Reichweite">
+<title>Kapital-Reichweite – Freiraummobil</title>
+<style>
+:root {
+  --accent: #458b00;
+  --accent-dark: #326400;
+  --accent-light: #e5ecdc;
+  --ink: #251e18;
+  --ink-soft: #82766a;
+  --green: #2f7a4d;
+  --green-bg: #e7f5ec;
+  --amber: #a8641f;
+  --amber-bg: #fbeedc;
+  --red: #cf4430;
+  --red-bg: #fbe6e1;
+  --border: #ece0d1;
+  --bg: #faf5ec;
+  --card: #ffffff;
+  --field-bg: #faf6f0;
+  --grid: #efe6da;
+  --radius: 20px;
+  --radius-sm: 14px;
+  --radius-pill: 999px;
+  --shadow: 0 6px 20px rgba(37, 30, 24, 0.07);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--ink); font-size: 15px; -webkit-font-smoothing: antialiased; }
+body { padding: env(safe-area-inset-top, 0) 0 40px; }
+.wrap { max-width: 620px; margin: 0 auto; padding: 0 16px; }
+
+.hdr { display: flex; align-items: center; gap: 12px; padding: 16px 0 12px; }
+.hdr-icon { width: 40px; height: 40px; border-radius: 13px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 12px rgba(75,83,32,0.35); flex-shrink: 0; }
+.hdr h1 { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
+.hdr p { font-size: 12px; color: var(--ink-soft); }
+.hdr a { margin-left: auto; font-size: 13px; color: var(--accent-dark); text-decoration: none; }
+
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.card h2 { font-size: 15px; font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+.card h2 .n { width: 22px; height: 22px; border-radius: 50%; background: var(--accent-light); color: var(--accent-dark); font-size: 12px; display: inline-flex; align-items: center; justify-content: center; }
+.card h3 { font-size: 13px; font-weight: 700; margin: 6px 0 8px; }
+.hint { font-size: 12.5px; color: var(--ink-soft); line-height: 1.45; margin-bottom: 12px; }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.full { grid-column: 1 / -1; }
+label.f { display: block; font-size: 12px; font-weight: 600; color: var(--ink-soft); margin-bottom: 10px; }
+label.f small { font-weight: 400; }
+label.f input { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--field-bg); font-size: 15px; color: var(--ink); font-family: inherit; }
+input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; border-radius: var(--radius-pill); border: 1px solid var(--border); background: var(--card); color: var(--ink); font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.small { padding: 6px 12px; font-size: 13px; }
+.btn.block { width: 100%; padding: 12px; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+input[type=file] { display: none; }
+
+.calc { background: var(--field-bg); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13px; margin: 2px 0 12px; font-variant-numeric: tabular-nums; }
+.calc div { display: flex; justify-content: space-between; padding: 2px 0; }
+.calc .tot { font-weight: 800; border-top: 1px solid var(--border); margin-top: 4px; padding-top: 6px; }
+.msg { font-size: 12.5px; padding: 10px 12px; border-radius: var(--radius-sm); margin-top: 10px; line-height: 1.45; }
+.msg.ok { background: var(--green-bg); color: var(--green); }
+.msg.warn { background: var(--amber-bg); color: var(--amber); }
+.msg.err { background: var(--red-bg); color: var(--red); }
+
+details { margin-top: 6px; }
+details summary { font-size: 13px; font-weight: 600; color: var(--accent-dark); cursor: pointer; }
+
+.result { text-align: center; padding: 22px 18px; }
+.result .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: var(--radius-pill); margin-bottom: 10px; }
+.result .badge.ok { background: var(--green-bg); color: var(--green); }
+.result .badge.warn { background: var(--amber-bg); color: var(--amber); }
+.result .badge.err { background: var(--red-bg); color: var(--red); }
+.result .big { font-size: 34px; font-weight: 800; letter-spacing: -0.8px; line-height: 1.1; }
+.result .sub { font-size: 14px; color: var(--ink-soft); margin-top: 6px; line-height: 1.45; }
+.result .extra { font-size: 13px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); line-height: 1.55; text-align: left; }
+
+.chart-box { position: relative; margin-top: 8px; }
+.chart-box svg { width: 100%; height: auto; display: block; touch-action: pan-y; }
+.chart-box .tip { position: absolute; pointer-events: none; background: var(--ink); color: #fff; font-size: 12px; padding: 6px 9px; border-radius: 8px; white-space: nowrap; transform: translate(-50%, -110%); display: none; font-variant-numeric: tabular-nums; }
+.axis text { font-size: 10px; fill: var(--ink-soft); }
+
+.tbl-wrap { overflow-x: auto; }
+.hist { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.hist td, .hist th { padding: 6px 4px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+.hist td:first-child, .hist th:first-child { text-align: left; }
+.hist th { font-size: 11px; color: var(--ink-soft); font-weight: 600; }
+.hist .del { border: none; background: none; color: var(--ink-soft); font-size: 16px; cursor: pointer; }
+.foot { font-size: 11.5px; color: var(--ink-soft); line-height: 1.5; padding: 4px 4px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    <div class="hdr-icon">⏳</div>
+    <div>
+      <h1>Kapital-Reichweite</h1>
+      <p>Wie lange reicht mein Vermögen?</p>
+    </div>
+    <a href="index.html">← Start</a>
+  </div>
+
+  <!-- 1. Stichtag -->
+  <div class="card">
+    <h2><span class="n">1</span>Stichtag erfassen</h2>
+    <p class="hint">Einmal im Monat eintragen. Die Werte vom letzten Stichtag sind vorausgefüllt – nur ändern, was sich geändert hat.</p>
+    <div class="grid2">
+      <label class="f">Stichtag<input type="date" id="date"></label>
+      <label class="f">Vermögen gesamt (€)<input type="number" id="assets" step="1000" inputmode="decimal" placeholder="Depot + Konten"></label>
+      <label class="f full">Cashflow Girokonto / Monat (€) <small>– Überschuss (+) oder Fehlbetrag (−), ohne Sparpläne und ohne Steuervorauszahlungen</small><input type="number" id="cf" step="50" inputmode="decimal" placeholder="z. B. -1500"></label>
+    </div>
+    <h3>Darin enthalten: steuerpflichtige Einnahmen (brutto)</h3>
+    <div class="grid2">
+      <label class="f">Rente / Monat (€)<input type="number" id="pension" step="10" inputmode="decimal" placeholder="0"></label>
+      <label class="f">Vermietung &amp; Verpachtung / Monat (€)<input type="number" id="rent" step="10" inputmode="decimal" placeholder="0"></label>
+    </div>
+    <div class="calc" id="calc"></div>
+    <div id="sollIst"></div>
+    <button class="btn primary block" id="saveEntry" style="margin-top:12px">Stichtag speichern</button>
+  </div>
+
+  <!-- Ergebnis -->
+  <div class="card result" id="result"></div>
+
+  <div class="card">
+    <h2>Kapitalverlauf</h2>
+    <p class="hint">Voraussichtliches Vermögen nach Steuern in heutiger Kaufkraft. Tippen oder darüberfahren für Details.</p>
+    <div class="chart-box"><svg id="chart" viewBox="0 0 360 220" role="img" aria-label="Voraussichtlicher Kapitalverlauf nach Alter"></svg><div class="tip" id="tip"></div></div>
+  </div>
+
+  <!-- Verlauf -->
+  <div class="card">
+    <h2>Stichtage</h2>
+    <p class="hint">„Soll/Ist“ vergleicht dein tatsächliches Vermögen mit dem, was die Rechnung vom vorigen Stichtag erwartet hat (vor Inflation).</p>
+    <div class="tbl-wrap"><table class="hist"><thead><tr><th>Stichtag</th><th>Vermögen</th><th>Cashflow*</th><th>Soll/Ist</th><th>reicht bis</th><th></th></tr></thead><tbody id="histRows"></tbody></table></div>
+    <p class="hint" style="margin:8px 0 0">* nach Steuern auf Rente und Vermietung</p>
+  </div>
+
+  <!-- 2. Grundwerte -->
+  <div class="card">
+    <h2><span class="n">2</span>Grundwerte &amp; Steuern</h2>
+    <p class="hint">Nur einmal einstellen. Gerechnet wird in heutiger Kaufkraft: Die Rendite wird erst versteuert, dann um die Inflation bereinigt.</p>
+    <div class="grid2">
+      <label class="f">Geburtsdatum<input type="date" id="birth"></label>
+      <label class="f">Planen bis Alter<input type="number" id="targetAge" min="50" max="110" step="1" inputmode="numeric"></label>
+      <label class="f">Rendite Depot p.a. (%)<input type="number" id="ret" step="0.1" inputmode="decimal"></label>
+      <label class="f">Inflation p.a. (%)<input type="number" id="infl" step="0.1" inputmode="decimal"></label>
+      <label class="f">Steuer Rente &amp; V+V (%)<input type="number" id="taxInc" step="1" inputmode="decimal"></label>
+      <label class="f">Steuer Kapitalerträge (%)<input type="number" id="taxCap" step="1" inputmode="decimal"></label>
+    </div>
+    <details>
+      <summary>Spätere Änderung, z. B. Rentenbeginn oder Verkauf einer Immobilie</summary>
+      <p class="hint" style="margin-top:8px">Ab diesem Alter gelten neue Monatswerte (in heutiger Kaufkraft). Leere Felder = keine Änderung.</p>
+      <div class="grid2">
+        <label class="f">Ab Alter<input type="number" id="chAge" min="18" max="110" inputmode="numeric"></label>
+        <label class="f">Cashflow Girokonto dann (€)<input type="number" id="chCf" step="50" inputmode="decimal"></label>
+        <label class="f">Rente dann (€)<input type="number" id="chPension" step="10" inputmode="decimal"></label>
+        <label class="f">V+V dann (€)<input type="number" id="chRent" step="10" inputmode="decimal"></label>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>Datensicherung</h2>
+    <p class="hint">Die Daten liegen nur auf diesem Gerät. Sicherungsdatei gelegentlich speichern – damit lassen sie sich auch auf ein anderes Gerät übertragen.</p>
+    <div class="btn-row">
+      <button class="btn small" id="exportBtn">Sicherung speichern</button>
+      <button class="btn small" id="importBtn">Sicherung laden</button>
+      <input type="file" id="importFile" accept=".json,application/json">
+    </div>
+    <div id="backupMsg"></div>
+  </div>
+
+  <p class="foot">Vereinfachte Modellrechnung: gleichbleibende Rendite, Steuern pauschal auf die gesamte Rendite und auf Rente/V+V. Keine Anlage- oder Steuerberatung.</p>
+</div>
+
+<script>
+const SETTINGS_KEY = 'reichweite_settings_v2';
+const ENTRIES_KEY = 'reichweite_entries_v2';
+const DRAFT_KEY = 'reichweite_draft_v2';
+const MAX_AGE = 110;
+const DAYS_PER_MONTH = 365.2425 / 12;
+
+const $ = id => document.getElementById(id);
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const has = v => v !== '' && v != null && isFinite(parseFloat(v));
+const eur = n => (isFinite(n) ? n : 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+const signed = n => (n > 0 ? '+' : '') + eur(n);
+const eurShort = n => Math.abs(n) >= 1e6 ? (n / 1e6).toLocaleString('de-DE', { maximumFractionDigits: 1 }) + ' Mio €'
+  : Math.abs(n) >= 1e3 ? Math.round(n / 1e3).toLocaleString('de-DE') + ' T€' : Math.round(n) + ' €';
+const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+const fmtDate = iso => { const [y, m, d] = iso.split('-'); return `${d}.${m}.${y}`; };
+const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+
+let settings = { birth: '', targetAge: 95, ret: 5, infl: 2.5, taxInc: 30, taxCap: 30, chAge: '', chCf: '', chPension: '', chRent: '' };
+let entries = [];
+let draft = { date: today(), assets: '', cf: '', pension: '', rent: '' };
+
+function readJSON(key, fallback) {
+  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch (e) { return fallback; }
+}
+function writeJSON(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+}
+function load() {
+  const s = readJSON(SETTINGS_KEY, null);
+  if (s) Object.assign(settings, s);
+  else {
+    // Grundwerte aus der ersten Version übernehmen
+    const old = readJSON('reichweite_state_v1', null);
+    if (old) for (const k of ['birth', 'targetAge', 'ret', 'infl']) if (old[k] !== undefined && old[k] !== '') settings[k] = old[k];
+  }
+  entries = readJSON(ENTRIES_KEY, []);
+  const d = readJSON(DRAFT_KEY, null);
+  const last = entries[entries.length - 1];
+  if (d) Object.assign(draft, d);
+  else if (last) Object.assign(draft, { assets: last.assets, cf: last.cf, pension: last.pension, rent: last.rent });
+  if (!d || (last && d.date <= last.date)) draft.date = today();
+}
+const saveSettings = () => writeJSON(SETTINGS_KEY, settings);
+const saveEntries = () => writeJSON(ENTRIES_KEY, entries);
+const saveDraft = () => writeJSON(DRAFT_KEY, draft);
+
+// ── Rechenkern ──────────────────────────────────────────
+// Rente und V+V kommen brutto aufs Girokonto; die Steuer darauf zieht die App pauschal ab.
+function effectiveCf(cf, pension, rent) {
+  return num(cf) - num(settings.taxInc) / 100 * (num(pension) + num(rent));
+}
+function netReturn() { return num(settings.ret) / 100 * (1 - num(settings.taxCap) / 100); }
+function realMonthlyRate() {
+  return Math.pow((1 + netReturn()) / (1 + num(settings.infl) / 100), 1 / 12) - 1;
+}
+function nominalMonthlyRate() { return Math.pow(1 + netReturn(), 1 / 12) - 1; }
+
+function ageAt(iso) {
+  if (!settings.birth) return null;
+  return (new Date(iso) - new Date(settings.birth)) / (365.2425 * 864e5);
+}
+function cfAtAge(age, base) {
+  const ch = parseFloat(settings.chAge);
+  if (!isFinite(ch) || age < ch) return base.eff;
+  const cf = has(settings.chCf) ? settings.chCf : base.cf;
+  const pension = has(settings.chPension) ? settings.chPension : base.pension;
+  const rent = has(settings.chRent) ? settings.chRent : base.rent;
+  return effectiveCf(cf, pension, rent);
+}
+// Monatliche Simulation: Kapital wächst mit realer Netto-Rendite, jeder Monat bringt den Cashflow dazu.
+function simulate(capital, age0, base, extra = 0, untilAge = MAX_AGE, stopAtZero = true) {
+  const rm = realMonthlyRate();
+  const pts = [{ age: age0, c: capital }];
+  let c = capital, runOut = null;
+  const months = Math.round((untilAge - age0) * 12);
+  for (let m = 1; m <= months; m++) {
+    const age = age0 + m / 12;
+    c = c * (1 + (c > 0 ? rm : 0)) + cfAtAge(age, base) + extra;
+    pts.push({ age, c });
+    if (c < 0 && runOut == null) { runOut = age; if (stopAtZero) break; }
+  }
+  return { pts, runOut, end: c };
+}
+// Zusätzlicher Monats-Cashflow, bei dem das Kapital mit dem Zielalter gerade bei 0 ankommt.
+function breakEvenExtra(capital, age0, base, target) {
+  if (target <= age0) return null;
+  let lo = -1e6, hi = 1e6;
+  for (let k = 0; k < 60; k++) {
+    const mid = (lo + hi) / 2;
+    if (simulate(capital, age0, base, mid, target, false).end < 0) lo = mid; else hi = mid;
+  }
+  return hi;
+}
+// Was hätte die Rechnung vom vorigen Stichtag für heute erwartet? (nominal, ohne Inflation)
+function expectedFrom(prev, dateIso) {
+  const months = (new Date(dateIso) - new Date(prev.date)) / (DAYS_PER_MONTH * 864e5);
+  if (months <= 0) return null;
+  const rm = nominalMonthlyRate();
+  const eff = effectiveCf(prev.cf, prev.pension, prev.rent);
+  const growth = Math.pow(1 + rm, months);
+  // Cashflow fließt monatlich zu (Rentenendwert)
+  const annuity = rm ? (growth - 1) / rm : months;
+  return prev.assets * growth + eff * annuity;
+}
+
+function fmtAge(a) {
+  const y = Math.floor(a), m = Math.floor((a - y) * 12);
+  return m ? `${y} J. ${m} Mon.` : `${y} Jahre`;
+}
+function dateAtAge(a) {
+  const d = new Date(new Date(settings.birth).getTime() + a * 365.2425 * 864e5);
+  return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+function prevEntryBefore(dateIso) {
+  return entries.filter(e => e.date < dateIso).pop() || null;
+}
+
+// ── Anzeige ─────────────────────────────────────────────
+let lastSim = null;
+function update() {
+  const base = { cf: num(draft.cf), pension: num(draft.pension), rent: num(draft.rent) };
+  base.eff = effectiveCf(base.cf, base.pension, base.rent);
+  const tax = base.cf - base.eff;
+  $('calc').innerHTML = `
+    <div><span>Cashflow Girokonto</span><span>${signed(base.cf)}</span></div>
+    <div><span>− Steuer ${num(settings.taxInc)} % auf ${eur(base.pension + base.rent)}</span><span>${signed(-tax)}</span></div>
+    <div class="tot"><span>Wirksamer Cashflow / Monat</span><span style="color:${base.eff < 0 ? 'var(--red)' : 'var(--green)'}">${signed(base.eff)}</span></div>`;
+
+  // Soll/Ist gegenüber dem vorigen Stichtag
+  const prev = prevEntryBefore(draft.date);
+  const exp = prev && has(draft.assets) ? expectedFrom(prev, draft.date) : null;
+  if (exp != null) {
+    const diff = num(draft.assets) - exp;
+    const cls = diff >= 0 ? 'ok' : (diff > -0.02 * exp ? 'warn' : 'err');
+    $('sollIst').innerHTML = `<div class="msg ${cls}">Seit ${fmtDate(prev.date)} erwartet: <strong>${eur(exp)}</strong> · tatsächlich: <strong>${eur(num(draft.assets))}</strong> · Abweichung <strong>${signed(diff)}</strong></div>`;
+  } else $('sollIst').innerHTML = '';
+
+  const res = $('result');
+  const age = ageAt(draft.date);
+  if (age == null || !has(draft.assets)) {
+    res.innerHTML = `<div class="sub">${age == null ? 'Bitte unten unter <strong>Grundwerte</strong> das Geburtsdatum eintragen.' : 'Bitte das Vermögen zum Stichtag eintragen.'}</div>`;
+    lastSim = null; drawChart(); return;
+  }
+  const cap = num(draft.assets);
+  const target = num(settings.targetAge) || 95;
+  const sim = simulate(cap, age, base);
+  lastSim = { sim, age, target };
+
+  let html;
+  if (sim.runOut != null) {
+    const ok = sim.runOut >= target;
+    const cls = ok ? 'ok' : (sim.runOut >= target - 10 ? 'warn' : 'err');
+    html = `<span class="badge ${cls}">${ok ? 'Reicht bis zum Zielalter ' + target : 'Reicht nicht bis ' + target}</span>
+      <div class="big">bis Alter ${Math.floor(sim.runOut)}</div>
+      <div class="sub">Dein Kapital reicht noch etwa <strong>${fmtAge(sim.runOut - age)}</strong> –<br>voraussichtlich bis <strong>${dateAtAge(sim.runOut)}</strong>.</div>`;
+  } else {
+    const atTarget = sim.pts.find(p => p.age >= target) || sim.pts[sim.pts.length - 1];
+    html = `<span class="badge ok">Reicht lebenslang</span>
+      <div class="big">über ${MAX_AGE} hinaus</div>
+      <div class="sub">Mit ${target} hättest du noch etwa <strong>${eur(atTarget.c)}</strong> (heutige Kaufkraft).</div>`;
+  }
+  const be = breakEvenExtra(cap, age, base, target);
+  html += `<div class="extra">`;
+  if (be != null) {
+    const a = -Math.round(be / 10) * 10;
+    html += a >= 0
+      ? `Spielraum bis ${target}: du könntest monatlich bis zu <strong>${eur(a)}</strong> mehr ausgeben.<br>`
+      : `Um bis ${target} auszukommen, müsstest du monatlich rund <strong>${eur(-a)}</strong> einsparen.<br>`;
+  }
+  const rn = netReturn() * 100, rr = ((1 + netReturn()) / (1 + num(settings.infl) / 100) - 1) * 100;
+  const pct = v => v.toLocaleString('de-DE', { maximumFractionDigits: 1 }) + ' %';
+  html += `Rendite nach Steuern ${pct(rn)}, nach Inflation ${pct(rr)} p.a.`;
+  if (base.eff < 0 && cap > 0) html += `<br>Entnahmerate: <strong>${pct(-base.eff * 12 / cap * 100)}</strong> des Vermögens pro Jahr.`;
+  html += `</div>`;
+  res.innerHTML = html;
+  drawChart();
+}
+
+// ── Diagramm ────────────────────────────────────────────
+const W = 360, H = 220, P = { l: 46, r: 10, t: 14, b: 26 };
+function niceStep(range, n) {
+  const raw = range / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const f = raw / mag;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag;
+}
+function drawChart() {
+  const svg = $('chart');
+  if (!lastSim) { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" font-size="12" fill="var(--ink-soft)">Noch keine Daten</text>`; return; }
+  const { sim, age, target } = lastSim;
+  const pts = sim.pts.filter((p, i) => i % 3 === 0 || i === sim.pts.length - 1);
+  const x0 = age, x1 = Math.max(target + 2, sim.runOut != null ? Math.min(MAX_AGE, sim.runOut + 3) : Math.min(MAX_AGE, target + 5));
+  const shown = pts.filter(p => p.age <= x1);
+  let yMax = Math.max(...shown.map(p => p.c), 1), yMin = Math.min(0, ...shown.map(p => p.c));
+  const step = niceStep(yMax - yMin, 4);
+  yMax = Math.ceil(yMax / step) * step; yMin = Math.floor(yMin / step) * step;
+  const sx = a => P.l + (a - x0) / (x1 - x0) * (W - P.l - P.r);
+  const sy = c => P.t + (yMax - c) / (yMax - yMin) * (H - P.t - P.b);
+
+  let g = '<g class="axis">';
+  for (let v = yMin; v <= yMax + 1e-6; v += step) {
+    g += `<line x1="${P.l}" x2="${W - P.r}" y1="${sy(v)}" y2="${sy(v)}" stroke="${v === 0 ? 'var(--ink-soft)' : 'var(--grid)'}" stroke-width="1"/>`;
+    g += `<text x="${P.l - 6}" y="${sy(v) + 3}" text-anchor="end">${eurShort(v)}</text>`;
+  }
+  const xs = Math.max(5, niceStep(x1 - x0, 5));
+  for (let a = Math.ceil(x0 / xs) * xs; a <= x1; a += xs) g += `<text x="${sx(a)}" y="${H - 8}" text-anchor="middle">${a}</text>`;
+  g += '</g>';
+  if (target <= x1) {
+    g += `<line x1="${sx(target)}" x2="${sx(target)}" y1="${P.t}" y2="${H - P.b}" stroke="var(--ink-soft)" stroke-dasharray="3 3"/>`;
+    g += `<text x="${sx(target) - 4}" y="${P.t + 10}" text-anchor="end" font-size="10" fill="var(--ink-soft)">Zielalter ${target}</text>`;
+  }
+  const d = shown.map((p, i) => `${i ? 'L' : 'M'}${sx(p.age).toFixed(1)},${sy(p.c).toFixed(1)}`).join('');
+  const zero = sy(Math.max(0, yMin));
+  g += `<path d="${d}L${sx(shown[shown.length - 1].age).toFixed(1)},${zero}L${sx(shown[0].age).toFixed(1)},${zero}Z" fill="var(--accent)" opacity="0.10"/>`;
+  g += `<path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>`;
+  if (sim.runOut != null && sim.runOut <= x1) g += `<circle cx="${sx(sim.runOut)}" cy="${sy(0)}" r="5" fill="var(--red)" stroke="var(--card)" stroke-width="2"/>`;
+  g += `<line id="cross" y1="${P.t}" y2="${H - P.b}" stroke="var(--ink)" stroke-width="1" opacity="0"/>`;
+  g += `<circle id="dot" r="5" fill="var(--accent)" stroke="var(--card)" stroke-width="2" opacity="0"/>`;
+  g += `<rect id="hit" x="${P.l}" y="0" width="${W - P.l - P.r}" height="${H}" fill="transparent"/>`;
+  svg.innerHTML = g;
+
+  const hit = $('hit'), tip = $('tip'), cross = $('cross'), dot = $('dot');
+  const move = ev => {
+    const e = ev.touches ? ev.touches[0] : ev;
+    const rect = svg.getBoundingClientRect();
+    const a = x0 + ((e.clientX - rect.left) / rect.width * W - P.l) / (W - P.l - P.r) * (x1 - x0);
+    let best = shown[0];
+    for (const p of shown) if (Math.abs(p.age - a) < Math.abs(best.age - a)) best = p;
+    const px = sx(best.age), py = sy(best.c);
+    cross.setAttribute('x1', px); cross.setAttribute('x2', px); cross.setAttribute('opacity', 0.25);
+    dot.setAttribute('cx', px); dot.setAttribute('cy', py); dot.setAttribute('opacity', 1);
+    tip.style.display = 'block';
+    tip.style.left = Math.min(Math.max(px / W * rect.width, 60), rect.width - 60) + 'px';
+    tip.style.top = (py / H * rect.height) + 'px';
+    tip.innerHTML = `Alter ${Math.floor(best.age)} · ${dateAtAge(best.age)}<br><strong>${eur(best.c)}</strong>`;
+  };
+  const leave = () => { tip.style.display = 'none'; cross.setAttribute('opacity', 0); dot.setAttribute('opacity', 0); };
+  hit.addEventListener('mousemove', move);
+  hit.addEventListener('touchstart', move, { passive: true });
+  hit.addEventListener('touchmove', move, { passive: true });
+  hit.addEventListener('mouseleave', leave);
+  hit.addEventListener('touchend', () => setTimeout(leave, 1500));
+}
+
+// ── Stichtage ───────────────────────────────────────────
+function entryRunOut(e) {
+  const age = ageAt(e.date);
+  if (age == null) return undefined;
+  const base = { cf: num(e.cf), pension: num(e.pension), rent: num(e.rent) };
+  base.eff = effectiveCf(base.cf, base.pension, base.rent);
+  return simulate(num(e.assets), age, base).runOut;
+}
+function renderHist() {
+  // Reichweite und Soll/Ist werden mit den aktuellen Grundwerten neu gerechnet
+  const rows = entries.map((e, i) => {
+    const prev = i > 0 ? entries[i - 1] : null;
+    const exp = prev ? expectedFrom(prev, e.date) : null;
+    const diff = exp != null ? num(e.assets) - exp : null;
+    const ro = entryRunOut(e);
+    const eff = effectiveCf(e.cf, e.pension, e.rent);
+    return `<tr>
+      <td>${fmtDate(e.date)}</td>
+      <td>${eurShort(num(e.assets))}</td>
+      <td style="color:${eff < 0 ? 'var(--red)' : 'var(--green)'}">${signed(eff)}</td>
+      <td>${diff == null ? '–' : `<span style="color:${diff < 0 ? 'var(--red)' : 'var(--green)'}">${diff > 0 ? '+' : ''}${eurShort(diff)}</span>`}</td>
+      <td>${ro === undefined ? '–' : ro == null ? 'lebenslang' : 'Alter ' + Math.floor(ro)}</td>
+      <td><button class="del" data-del="${i}" aria-label="Stichtag löschen">×</button></td></tr>`;
+  }).reverse();
+  $('histRows').innerHTML = rows.length ? rows.join('') : '<tr><td colspan="6" style="text-align:left;color:var(--ink-soft)">Noch keine Stichtage gespeichert.</td></tr>';
+}
+function saveEntry() {
+  if (!draft.date || !has(draft.assets) || !has(draft.cf)) { alert('Bitte Stichtag, Vermögen und Cashflow eintragen.'); return; }
+  const e = { date: draft.date, assets: num(draft.assets), cf: num(draft.cf), pension: num(draft.pension), rent: num(draft.rent) };
+  const i = entries.findIndex(x => x.date === e.date);
+  if (i >= 0 && !confirm(`Für den ${fmtDate(e.date)} gibt es schon einen Eintrag. Überschreiben?`)) return;
+  if (i >= 0) entries[i] = e; else entries.push(e);
+  entries.sort((a, b) => a.date.localeCompare(b.date));
+  saveEntries(); renderHist();
+  $('saveEntry').textContent = 'Gespeichert ✓';
+  setTimeout(() => { $('saveEntry').textContent = 'Stichtag speichern'; }, 1500);
+}
+
+// ── Sicherung ───────────────────────────────────────────
+function exportData() {
+  const blob = new Blob([JSON.stringify({ app: 'reichweite', version: 2, settings, entries }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `reichweite-${today()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function importData(file) {
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (d.app !== 'reichweite' || !Array.isArray(d.entries)) throw new Error();
+      if (!confirm(`${d.entries.length} Stichtage und die Grundwerte laden? Die Daten auf diesem Gerät werden ersetzt.`)) return;
+      Object.assign(settings, d.settings || {});
+      entries = d.entries;
+      saveSettings(); saveEntries();
+      fillFields(); renderHist(); update();
+      $('backupMsg').innerHTML = '<div class="msg ok">Sicherung geladen.</div>';
+    } catch (e) {
+      $('backupMsg').innerHTML = '<div class="msg err">Die Datei ist keine gültige Sicherung.</div>';
+    }
+  };
+  r.readAsText(file);
+}
+
+// ── Verdrahtung ─────────────────────────────────────────
+const SETTING_FIELDS = ['birth', 'targetAge', 'ret', 'infl', 'taxInc', 'taxCap', 'chAge', 'chCf', 'chPension', 'chRent'];
+const DRAFT_FIELDS = ['date', 'assets', 'cf', 'pension', 'rent'];
+function fillFields() {
+  for (const k of SETTING_FIELDS) $(k).value = settings[k] ?? '';
+  for (const k of DRAFT_FIELDS) $(k).value = draft[k] ?? '';
+}
+function init() {
+  load();
+  fillFields();
+  for (const k of SETTING_FIELDS) $(k).addEventListener('input', () => { settings[k] = $(k).value; saveSettings(); update(); renderHist(); });
+  for (const k of DRAFT_FIELDS) $(k).addEventListener('input', () => { draft[k] = $(k).value; saveDraft(); update(); });
+  $('saveEntry').onclick = saveEntry;
+  $('histRows').addEventListener('click', e => {
+    const i = e.target.dataset.del;
+    if (i == null || !confirm(`Stichtag ${fmtDate(entries[+i].date)} löschen?`)) return;
+    entries.splice(+i, 1); saveEntries(); renderHist(); update();
+  });
+  $('exportBtn').onclick = exportData;
+  $('importBtn').onclick = () => $('importFile').click();
+  $('importFile').onchange = e => { if (e.target.files[0]) importData(e.target.files[0]); e.target.value = ''; };
+  renderHist();
+  update();
+}
+init();
+</script>
+</body>
+</html>
