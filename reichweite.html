@@ -97,7 +97,7 @@ details summary { font-size: 13px; font-weight: 600; color: var(--accent-dark); 
 .hist { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
 .hist td, .hist th { padding: 6px 3px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
 .hist td:first-child, .hist th:first-child { text-align: left; }
-.hist th { font-size: 11px; color: var(--ink-soft); font-weight: 600; }
+.hist th { font-size: 11px; color: var(--ink-soft); font-weight: 600; white-space: normal; vertical-align: bottom; line-height: 1.25; }
 .hist .del { border: none; background: none; color: var(--ink-soft); font-size: 16px; cursor: pointer; }
 .foot { font-size: 11.5px; color: var(--ink-soft); line-height: 1.5; padding: 4px 4px 0; }
 </style>
@@ -146,7 +146,7 @@ details summary { font-size: 13px; font-weight: 600; color: var(--accent-dark); 
   <div class="card">
     <h2>Stichtage</h2>
     <p class="hint">„Soll/Ist“ vergleicht dein tatsächliches Vermögen mit dem, was die Rechnung vom vorigen Stichtag erwartet hat (vor Inflation).</p>
-    <div class="tbl-wrap"><table class="hist"><thead><tr><th>Stichtag</th><th>Vermögen</th><th>Cashflow*</th><th>Soll/Ist</th><th>reicht bis</th><th></th></tr></thead><tbody id="histRows"></tbody></table></div>
+    <div class="tbl-wrap"><table class="hist"><thead><tr><th>Stichtag</th><th>Vermögen €</th><th>Cashflow* €</th><th>Soll/Ist €</th><th>reicht bis Alter</th><th></th></tr></thead><tbody id="histRows"></tbody></table></div>
     <p class="hint" style="margin:8px 0 0">* nach Steuern auf Rente und Vermietung</p>
   </div>
 
@@ -205,14 +205,13 @@ function parseNum(v) {
   if (lastComma > lastDot) t = t.replace(/\./g, '').replace(',', '.');        // 1.500,50
   else if (lastComma >= 0) t = t.replace(/,/g, '');                           // 1,500.50
   else if (/^-?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');         // 1.500
-  return /^-?\d*\.?\d+$/.test(t) ? parseFloat(t) : NaN;
+  return /^-?(\d+\.?\d*|\.\d+)$/.test(t) ? parseFloat(t) : NaN;
 }
 const num = v => { const n = parseNum(v); return isFinite(n) ? n : 0; };
 const has = v => isFinite(parseNum(v));
 const eur = n => (isFinite(n) ? n : 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 const signed = n => (n > 0 ? '+' : '') + eur(n);
-const eurShort = n => Math.abs(n) >= 1e6 ? (n / 1e6).toLocaleString('de-DE', { maximumFractionDigits: 1 }) + ' Mio €'
-  : Math.abs(n) >= 1e3 ? Math.round(n / 1e3).toLocaleString('de-DE') + ' T€' : Math.round(n) + ' €';
+const fmtInt = n => Math.round(isFinite(n) ? n : 0).toLocaleString('de-DE');
 const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
 const fmtDate = iso => { const [y, m, d] = iso.split('-'); return `${d}.${m}.${y}`; };
 const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
@@ -379,7 +378,7 @@ function update() {
 }
 
 // ── Diagramm ────────────────────────────────────────────
-const W = 360, H = 220, P = { l: 46, r: 10, t: 14, b: 26 };
+const W = 360, H = 220, P = { l: 58, r: 10, t: 14, b: 26 };
 function niceStep(range, n) {
   const raw = range / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
   const f = raw / mag;
@@ -401,7 +400,7 @@ function drawChart() {
   let g = '<g class="axis">';
   for (let v = yMin; v <= yMax + 1e-6; v += step) {
     g += `<line x1="${P.l}" x2="${W - P.r}" y1="${sy(v)}" y2="${sy(v)}" stroke="${v === 0 ? 'var(--ink-soft)' : 'var(--grid)'}" stroke-width="1"/>`;
-    g += `<text x="${P.l - 6}" y="${sy(v) + 3}" text-anchor="end">${eurShort(v)}</text>`;
+    g += `<text x="${P.l - 6}" y="${sy(v) + 3}" text-anchor="end">${fmtInt(v)}</text>`;
   }
   const xs = Math.max(5, niceStep(x1 - x0, 5));
   for (let a = Math.ceil(x0 / xs) * xs; a <= x1; a += xs) g += `<text x="${sx(a)}" y="${H - 8}" text-anchor="middle">${a}</text>`;
@@ -460,11 +459,11 @@ function renderHist() {
     const ro = entryRunOut(e);
     const eff = effectiveCf(e.cf, e.pension, e.rent);
     return `<tr>
-      <td>${fmtDate(e.date)}</td>
-      <td>${eurShort(num(e.assets))}</td>
-      <td style="color:${eff < 0 ? 'var(--red)' : 'var(--green)'}">${signed(eff)}</td>
-      <td>${diff == null ? '–' : `<span style="color:${diff < 0 ? 'var(--red)' : 'var(--green)'}">${diff > 0 ? '+' : ''}${eurShort(diff)}</span>`}</td>
-      <td>${ro === undefined ? '–' : ro == null ? 'lebenslang' : 'Alter ' + Math.floor(ro)}</td>
+      <td>${fmtDate(e.date).replace(/\.\d\d(\d\d)$/, '.$1')}</td>
+      <td>${fmtInt(num(e.assets))}</td>
+      <td style="color:${eff < 0 ? 'var(--red)' : 'var(--green)'}">${eff > 0 ? '+' : ''}${fmtInt(eff)}</td>
+      <td>${diff == null ? '–' : `<span style="color:${diff < 0 ? 'var(--red)' : 'var(--green)'}">${diff > 0 ? '+' : ''}${fmtInt(diff)}</span>`}</td>
+      <td>${ro === undefined ? '–' : ro == null ? 'immer' : Math.floor(ro)}</td>
       <td><button class="del" data-del="${i}" aria-label="Stichtag löschen">×</button></td></tr>`;
   }).reverse();
   $('histRows').innerHTML = rows.length ? rows.join('') : '<tr><td colspan="6" style="text-align:left;color:var(--ink-soft)">Noch keine Stichtage gespeichert.</td></tr>';
@@ -510,17 +509,45 @@ function importData(file) {
 }
 
 // ── Verdrahtung ─────────────────────────────────────────
+const MONEY_FIELDS = new Set(['assets', 'cf', 'pension', 'rent', 'chCf', 'chPension', 'chRent']);
+// Formatiert einen Betrag als 1.234.567,89 und behält die Cursorposition (gezählt in Ziffern/Komma/Minus).
+function groupDigits(v) {
+  v = String(v ?? '');
+  const neg = /^\s*[-−]/.test(v);
+  const clean = v.replace(/[^\d,]/g, '');
+  const ci = clean.indexOf(',');
+  let int = (ci >= 0 ? clean.slice(0, ci) : clean).replace(/^0+(?=\d)/, '');
+  const dec = ci >= 0 ? clean.slice(ci + 1).replace(/,/g, '').slice(0, 2) : null;
+  int = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (neg ? '-' : '') + int + (dec != null ? ',' + dec : '');
+}
+function formatMoneyInput(el) {
+  const old = el.value, caret = el.selectionStart ?? old.length;
+  const sig = c => /[\d,\-−]/.test(c);
+  const before = [...old.slice(0, caret)].filter(sig).length;
+  const val = groupDigits(old);
+  if (val === old) return;
+  el.value = val;
+  let pos = 0, seen = 0;
+  while (pos < val.length && seen < before) { if (sig(val[pos])) seen++; pos++; }
+  try { el.setSelectionRange(pos, pos); } catch (e) {}
+}
+// Gespeicherte Werte (Zahl oder Text) für die Anzeige im Feld aufbereiten
+const fieldValue = (k, v) => {
+  if (!MONEY_FIELDS.has(k) || v === '' || v == null) return v ?? '';
+  return groupDigits(typeof v === 'number' ? String(v).replace('.', ',') : String(parseNum(v)).replace('.', ',').replace('NaN', ''));
+};
 const SETTING_FIELDS = ['birth', 'targetAge', 'ret', 'infl', 'taxInc', 'taxCap', 'chAge', 'chCf', 'chPension', 'chRent'];
 const DRAFT_FIELDS = ['date', 'assets', 'cf', 'pension', 'rent'];
 function fillFields() {
-  for (const k of SETTING_FIELDS) $(k).value = settings[k] ?? '';
-  for (const k of DRAFT_FIELDS) $(k).value = draft[k] ?? '';
+  for (const k of SETTING_FIELDS) $(k).value = fieldValue(k, settings[k]);
+  for (const k of DRAFT_FIELDS) $(k).value = fieldValue(k, draft[k]);
 }
 function init() {
   load();
   fillFields();
-  for (const k of SETTING_FIELDS) $(k).addEventListener('input', () => { settings[k] = $(k).value; saveSettings(); update(); renderHist(); });
-  for (const k of DRAFT_FIELDS) $(k).addEventListener('input', () => { draft[k] = $(k).value; saveDraft(); update(); });
+  for (const k of SETTING_FIELDS) $(k).addEventListener('input', () => { if (MONEY_FIELDS.has(k)) formatMoneyInput($(k)); settings[k] = $(k).value; saveSettings(); update(); renderHist(); });
+  for (const k of DRAFT_FIELDS) $(k).addEventListener('input', () => { if (MONEY_FIELDS.has(k)) formatMoneyInput($(k)); draft[k] = $(k).value; saveDraft(); update(); });
   document.querySelectorAll('[data-sign]').forEach(b => b.addEventListener('click', () => {
     const el = $(b.dataset.sign), v = el.value.trim();
     el.value = /^[-−]/.test(v) ? v.replace(/^[-−]\s*/, '') : '-' + v;
